@@ -1,7 +1,7 @@
 package main
 
 import (
-	//"errors"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -45,6 +45,12 @@ func sbiLogin(userID, userPassword string) (*browser.Browser, error) {
 		return nil, err
 	}
 
+	text, _ := sjisToUtf8(bow.Find(".tp-box-05").Text())
+	fmt.Printf("%s", text)
+	if !strings.Contains(text, "最終ログイン:") {
+		return nil, errors.New("the SBI User ID or Password failed")
+	}
+
 	return bow, nil
 }
 
@@ -53,21 +59,21 @@ func sbiScan(bow *browser.Browser) error {
 	bow.Click("//area[@title=\"保有証券\"]")
 
 	stocks := bow.Find("table").FilterFunction(func(_ int, s *goquery.Selection) bool {
-		str := s.Find("tr").First().Text()
+		str, _ := sjisToUtf8(s.Find("tr").First().Text())
 		return strings.Contains(str, "銘柄")
 	})
 
-	fmt.Print("stocks")
+	fmt.Print("stocks\n")
 	stocks.Each(func(_ int, s *goquery.Selection) {
 		fmt.Print(s)
 	})
 
 	funds := bow.Find("table").FilterFunction(func(_ int, s *goquery.Selection) bool {
-		str := s.Find("tr").First().Text()
+		str, _ := sjisToUtf8(s.Find("tr").First().Text())
 		return strings.Contains(str, "投資信託")
 	})
 
-	fmt.Print("funds")
+	fmt.Print("funds\n")
 	funds.Each(func(_ int, s *goquery.Selection) {
 		fmt.Print(s)
 	})
@@ -84,7 +90,7 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Print("Login!")
+	fmt.Print("Login!\n")
 
 	sbiScan(bow)
 }
