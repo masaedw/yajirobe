@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"gopkg.in/headzoo/surf.v1"
 	"github.com/headzoo/surf/browser"
 	"github.com/PuerkitoBio/goquery"
+	"golang.org/x/text/encoding/japanese"
+	"golang.org/x/text/transform"
+	"gopkg.in/headzoo/surf.v1"
 )
 
 func sbiLogin(userID, userPassword string) (*browser.Browser, error) {

@@ -35,6 +35,20 @@
   revision = "d866cfc389cec985d6fda2859936a575a55a3ab6"
 
 [[projects]]
+  branch = "master"
+  name = "golang.org/x/text"
+  packages = [
+    "encoding",
+    "encoding/internal",
+    "encoding/internal/identifier",
+    "encoding/japanese",
+    "internal/gen",
+    "transform",
+    "unicode/cldr"
+  ]
+  revision = "e19ae1496984b1c655b8044a65c0300a3c878dd3"
+
+[[projects]]
   name = "gopkg.in/headzoo/surf.v1"
   packages = ["."]
   revision = "60198774ccce43e1d26c80e961497b7d262460b3"
@@ -43,6 +57,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3be469beab46bca361ceea5f59c7decb221b98fb970c9efe2f37c5f14dcc6237"
+  inputs-digest = "fcf453919ebb5c689efa4ef04229876a21ccf983dd9a7cc7d2779b63971a0d6e"
   solver-name = "gps-cdcl"
   solver-version = 1
