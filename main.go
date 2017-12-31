@@ -3,6 +3,7 @@ package main
 import (
 	//"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"github.com/headzoo/surf/browser"
@@ -11,6 +12,14 @@ import (
 	"golang.org/x/text/transform"
 	"gopkg.in/headzoo/surf.v1"
 )
+
+func sjisToUtf8(str string) (string, error) {
+	ret, err := ioutil.ReadAll(transform.NewReader(strings.NewReader(str), japanese.ShiftJIS.NewDecoder()))
+	if err != nil {
+		return "", err
+	}
+	return string(ret), err
+}
 
 func sbiLogin(userID, userPassword string) (*browser.Browser, error) {
 	bow := surf.NewBrowser()
