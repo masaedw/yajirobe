@@ -6,11 +6,12 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
-	"github.com/headzoo/surf/browser"
+
 	"github.com/PuerkitoBio/goquery"
+	"github.com/headzoo/surf/browser"
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/transform"
-	"gopkg.in/headzoo/surf.v1"
+	surf "gopkg.in/headzoo/surf.v1"
 )
 
 func sjisToUtf8(str string) (string, error) {
@@ -41,9 +42,9 @@ func sbiLogin(userID, userPassword string) (*browser.Browser, error) {
 	form.Input("ACT_login.y", "12")
 	err = form.Submit()
 	if err != nil {
-        return nil, err
+		return nil, err
 	}
-	
+
 	return bow, nil
 }
 
