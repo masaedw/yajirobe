@@ -17,12 +17,9 @@ import (
 	surf "gopkg.in/headzoo/surf.v1"
 )
 
-func sjisToUtf8(str string) (string, error) {
-	ret, err := ioutil.ReadAll(transform.NewReader(strings.NewReader(str), japanese.ShiftJIS.NewDecoder()))
-	if err != nil {
-		return "", err
-	}
-	return string(ret), err
+func sjisToUtf8(str string) string {
+	ret, _ := ioutil.ReadAll(transform.NewReader(strings.NewReader(str), japanese.ShiftJIS.NewDecoder()))
+	return string(ret)
 }
 
 func setForms(form browser.Submittable, inputs map[string]string) error {
@@ -36,10 +33,8 @@ func setForms(form browser.Submittable, inputs map[string]string) error {
 }
 
 func printPage(bow browser.Browsable) {
-	title, _ := sjisToUtf8(bow.Title())
-	fmt.Printf("title:%s\n", title)
-	body, _ := sjisToUtf8(bow.Body())
-	fmt.Printf("body:\n%s", body)
+	fmt.Printf("title:%s\n", sjisToUtf8(bow.Title()))
+	fmt.Printf("body:\n%s", sjisToUtf8(bow.Body()))
 }
 
 func exportValues(form *goquery.Selection) url.Values {
@@ -78,7 +73,7 @@ func sbiLogin(userID, userPassword string) (*browser.Browser, error) {
 
 	loginForm.Submit()
 
-	text, _ := sjisToUtf8(bow.Find("font").Text())
+	text := sjisToUtf8(bow.Find("font").Text())
 	if strings.Contains(text, "WBLE") {
 		return nil, errors.New(text)
 	}
@@ -90,8 +85,7 @@ func sbiLogin(userID, userPassword string) (*browser.Browser, error) {
 
 	bow.PostForm(nextForm.AttrOr("action", "url not found"), exportValues(nextForm))
 
-	text, _ = sjisToUtf8(bow.Find(".tp-box-05").Text())
-	if !strings.Contains(text, "最終ログイン:") {
+	if !strings.Contains(sjisToUtf8(bow.Find(".tp-box-05").Text()), "最終ログイン:") {
 		return nil, errors.New("the SBI User ID or Password failed")
 	}
 
@@ -103,20 +97,20 @@ func sbiScan(bow *browser.Browser) error {
 	bow.Click("//area[@title=\"保有証券\"]")
 
 	stocks := bow.Find("table").FilterFunction(func(_ int, s *goquery.Selection) bool {
-		str, _ := sjisToUtf8(s.Find("tr").First().Text())
+		str := sjisToUtf8(s.Find("tr").First().Text())
 		return strings.Contains(str, "銘柄")
 	})
 
 	fmt.Print("stocks\n")
 	stocks.Each(func(_ int, s *goquery.Selection) {
-		str, _ := sjisToUtf8(s.Text())
+		str := sjisToUtf8(s.Text())
 		if str != "" {
 			fmt.Println(strings.TrimSpace(str))
 		}
 	})
 
 	funds := bow.Find("table").FilterFunction(func(_ int, s *goquery.Selection) bool {
-		str, _ := sjisToUtf8(s.Find("tr").First().Text())
+		str := sjisToUtf8(s.Find("tr").First().Text())
 		return strings.Contains(str, "投資信託")
 	})
 
