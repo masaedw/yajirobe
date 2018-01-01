@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"strings"
@@ -13,13 +12,12 @@ import (
 	"github.com/headzoo/surf/agent"
 	"github.com/headzoo/surf/browser"
 	"golang.org/x/text/encoding/japanese"
-	"golang.org/x/text/transform"
 	surf "gopkg.in/headzoo/surf.v1"
 )
 
 func sjisToUtf8(str string) string {
-	ret, _ := ioutil.ReadAll(transform.NewReader(strings.NewReader(str), japanese.ShiftJIS.NewDecoder()))
-	return string(ret)
+	s, _ := japanese.ShiftJIS.NewDecoder().String(str)
+	return s
 }
 
 func setForms(form browser.Submittable, inputs map[string]string) error {
