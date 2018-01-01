@@ -4,10 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"strings"
+	//"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/headzoo/surf/agent"
 	"github.com/headzoo/surf/browser"
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/transform"
@@ -22,31 +25,72 @@ func sjisToUtf8(str string) (string, error) {
 	return string(ret), err
 }
 
+func setForms(form browser.Submittable, inputs map[string]string) error {
+	for k, v := range inputs {
+		err := form.Set(k, v)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func printPage(bow browser.Browsable) {
+	title, _ := sjisToUtf8(bow.Title())
+	fmt.Printf("title:%s\n", title)
+	body, _ := sjisToUtf8(bow.Body())
+	fmt.Printf("body:\n%s", body)
+}
+
+func exportValues(form *goquery.Selection) url.Values {
+	data := url.Values{}
+
+	form.Find("input").Each(func(_ int, s *goquery.Selection) {
+		name, _ := s.Attr("name")
+		value, _ := s.Attr("value")
+		data.Add(name, value)
+	})
+
+	return data
+}
+
 func sbiLogin(userID, userPassword string) (*browser.Browser, error) {
 	bow := surf.NewBrowser()
-	err := bow.Open("https://www.sbisec.co.jp/ETGate")
-	if err != nil {
-		return nil, err
+	bow.SetUserAgent(agent.Chrome())
+
+	bow.Open("https://www.sbisec.co.jp/ETGate")
+
+	loginForm, _ := bow.Form("[name='form_login']")
+
+	setForms(loginForm, map[string]string{
+		"JS_FLG":          "0",
+		"BW_FLG":          "0",
+		"_ControlID":      "WPLETlgR001Control",
+		"_DataStoreID":    "DSWPLETlgR001Control",
+		"_PageID":         "WPLETlgR001Rlgn20",
+		"_ActionID":       "login",
+		"getFlg":          "on",
+		"allPrmFlg":       "on",
+		"_ReturnPageInfo": "WPLEThmR001Control/DefaultPID/DefaultAID/DSWPLEThmR001Control",
+		"user_id":         userID,
+		"user_password":   userPassword,
+	})
+
+	loginForm.Submit()
+
+	text, _ := sjisToUtf8(bow.Find("font").Text())
+	if strings.Contains(text, "WBLE") {
+		return nil, errors.New(text)
 	}
 
-	form, err := bow.Form("[name='form_login']")
-	if err != nil {
-		return nil, err
+	nextForm := bow.Find("form").First()
+	if nextForm == nil {
+		return nil, errors.New("formSwitch not found")
 	}
 
-	form.Input("user_id", userID)
-	form.Input("usrr_passwd", userPassword)
-	form.Input("JS_FLG", "1")
-	form.Input("BW_FLG", "chrome,56")
-	form.Input("ACT_login.x", "12")
-	form.Input("ACT_login.y", "12")
-	err = form.Submit()
-	if err != nil {
-		return nil, err
-	}
+	bow.PostForm(nextForm.AttrOr("action", "url not found"), exportValues(nextForm))
 
-	text, _ := sjisToUtf8(bow.Find(".tp-box-05").Text())
-	fmt.Printf("%s", text)
+	text, _ = sjisToUtf8(bow.Find(".tp-box-05").Text())
 	if !strings.Contains(text, "最終ログイン:") {
 		return nil, errors.New("the SBI User ID or Password failed")
 	}
@@ -65,7 +109,10 @@ func sbiScan(bow *browser.Browser) error {
 
 	fmt.Print("stocks\n")
 	stocks.Each(func(_ int, s *goquery.Selection) {
-		fmt.Print(s)
+		str, _ := sjisToUtf8(s.Text())
+		if str != "" {
+			fmt.Println(strings.TrimSpace(str))
+		}
 	})
 
 	funds := bow.Find("table").FilterFunction(func(_ int, s *goquery.Selection) bool {
@@ -83,7 +130,7 @@ func sbiScan(bow *browser.Browser) error {
 
 func main() {
 	userID := os.Getenv("SBI_USER_ID")
-	userPassword := os.Getenv("SBI_UESR_PASSWORD")
+	userPassword := os.Getenv("SBI_USER_PASSWORD")
 
 	bow, err := sbiLogin(userID, userPassword)
 	if err != nil {
