@@ -85,25 +85,29 @@ func sbiAccountPage(bow *browser.Browser) error {
 
 func sbiScanStock(row *goquery.Selection) Stock {
 	cells := iterate(row.Find("td"))
-	s := Stock{}
 
 	nameCode := toUtf8(cells[0].Text())
 	re := regexp.MustCompile(`(\S+?)(\d{4})`)
 	m := re.FindStringSubmatch(nameCode)
-	s.Name = m[1]
-	s.Code, _ = strconv.Atoi(m[2])
 
-	s.Amount = int(parseSeparatedInt(toUtf8(cells[1].Text())))
-
+	name := m[1]
+	code, _ := strconv.Atoi(m[2])
+	amount := int(parseSeparatedInt(toUtf8(cells[1].Text())))
 	units := iterateText(cells[2])
+	acquisitionUnitPrice := parseSeparatedInt(units[0])
+	currentUnitPrice := parseSeparatedInt(units[1])
+	acquisitionPrice := acquisitionUnitPrice * int64(amount)
+	currentPrice := currentUnitPrice * int64(amount)
 
-	s.AcquisitionUnitPrice = parseSeparatedInt(units[0])
-	s.CurrentUnitPrice = parseSeparatedInt(units[1])
-
-	s.AcquisitionPrice = s.AcquisitionUnitPrice * int64(s.Amount)
-	s.CurrentPrice = s.CurrentUnitPrice * int64(s.Amount)
-
-	return s
+	return Stock{
+		Name:                 name,
+		Code:                 code,
+		Amount:               amount,
+		AcquisitionUnitPrice: acquisitionUnitPrice,
+		CurrentUnitPrice:     currentUnitPrice,
+		AcquisitionPrice:     acquisitionPrice,
+		CurrentPrice:         currentPrice,
+	}
 }
 
 func sbiScanFund(row *goquery.Selection) Fund {
