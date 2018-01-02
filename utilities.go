@@ -1,6 +1,7 @@
 package main
 
 import (
+	"regexp"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -97,7 +98,9 @@ func iterateText(s *goquery.Selection) (result []string) {
 
 // strings
 
-func parseCurrencyValue(s string) int64 {
-	i, _ := strconv.ParseInt(strings.Replace(s, ",", "", -1), 10, 64)
+func parseSeparatedInt(s string) int64 {
+	s = strings.Replace(s, ",", "", -1)
+	s = regexp.MustCompile(`\d+`).FindString(s)
+	i, _ := strconv.ParseInt(s, 10, 64)
 	return i
 }

@@ -10,3 +10,14 @@ type Stock struct {
 	AcquisitionPrice     int64  // 取得金額
 	CurrentPrice         int64  // 評価額
 }
+
+// Fund 投資信託
+type Fund struct {
+	Name                 string  // 名称
+	Code                 string  // 協会コード
+	Amount               int     // 保有口数
+	AcquisitionUnitPrice float64 // 取得単価
+	CurrentUnitPrice     float64 // 基準価額
+	AcquisitionPrice     float64 // 取得金額
+	CurrentPrice         float64 // 評価額
+}

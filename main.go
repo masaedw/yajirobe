@@ -3,12 +3,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
-
-	//"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/headzoo/surf/agent"
@@ -94,13 +93,12 @@ func sbiScanStock(row *goquery.Selection) Stock {
 	s.Name = m[1]
 	s.Code, _ = strconv.Atoi(m[2])
 
-	s.Amount, _ = strconv.Atoi(toUtf8(cells[1].Text()))
+	s.Amount = int(parseSeparatedInt(toUtf8(cells[1].Text())))
 
 	units := iterateText(cells[2])
 
-	fmt.Println(units)
-	s.AcquisitionUnitPrice = parseCurrencyValue(units[0])
-	s.CurrentUnitPrice = parseCurrencyValue(units[1])
+	s.AcquisitionUnitPrice = parseSeparatedInt(units[0])
+	s.CurrentUnitPrice = parseSeparatedInt(units[1])
 
 	s.AcquisitionPrice = s.AcquisitionUnitPrice * int64(s.Amount)
 	s.CurrentPrice = s.CurrentUnitPrice * int64(s.Amount)
@@ -108,30 +106,64 @@ func sbiScanStock(row *goquery.Selection) Stock {
 	return s
 }
 
+func sbiScanFund(row *goquery.Selection) Fund {
+	cells := iterate(row.Find("td"))
+
+	href := cells[0].Find("a").AttrOr("href", "Fund name not found")
+	url, _ := url.Parse(href)
+	query := url.Query()
+	name := toUtf8(query.Get("sec_name"))
+	code := query.Get("fund_sec_code")
+	amount := parseSeparatedInt(cells[1].Text())
+	units := iterateText(cells[2])
+	acquisitionUnitPrice := parseSeparatedInt(units[0])
+	currentUnitPrice := parseSeparatedInt(units[1])
+
+	return Fund{
+		Name:                 name,
+		Code:                 code,
+		Amount:               int(amount),
+		AcquisitionUnitPrice: float64(acquisitionUnitPrice),
+		CurrentUnitPrice:     float64(currentUnitPrice),
+		AcquisitionPrice:     float64(acquisitionUnitPrice) * float64(amount) / 10000,
+		CurrentPrice:         float64(currentUnitPrice) * float64(amount) / 10000,
+	}
+}
+
 func sbiScan(bow *browser.Browser) error {
-	stocksFont := filterTextContains(bow.Find("font"), toSjis("銘柄"))
-	stocksTable := stocksFont.ParentsFiltered("table").First()
+	stockFont := filterTextContains(bow.Find("font"), toSjis("銘柄"))
+	stockTable := stockFont.ParentsFiltered("table").First()
 
 	stocks := []Stock{}
 
-	for _, tr := range iterate(stocksTable.Find("tr"))[1:] {
+	for _, tr := range iterate(stockTable.Find("tr"))[1:] {
 		stocks = append(stocks, sbiScanStock(tr))
 	}
 	fmt.Printf("stocks\n")
 
 	for _, stock := range stocks {
-		fmt.Printf("%#v\n", stock)
+		fmt.Printf("%+v\n", stock)
 	}
 
-	fundsFont := filterTextContains(bow.Find("font"), toSjis("投資信託"))
-	fmt.Println(fundsFont.Length())
-	fundsTable := fundsFont.ParentsFiltered("table")
-	fmt.Println(fundsTable.Length())
+	fundFont := filterTextContains(bow.Find("font"), toSjis("ファンド名"))
+	fundTables := iterate(fundFont.Parent().Parent().Parent().Parent())
+
+	funds := []Fund{}
+
+	for _, table := range fundTables {
+		for i, tr := range iterate(table.Find("tr")) {
+			if i%2 == 0 {
+				continue
+			}
+
+			funds = append(funds, sbiScanFund(tr))
+		}
+	}
 
 	fmt.Print("funds\n")
-	fundsTable.Each(func(_ int, s *goquery.Selection) {
-		//fmt.Println(s)
-	})
+	for _, fund := range funds {
+		fmt.Printf("%+v\n", fund)
+	}
 
 	return nil
 }
