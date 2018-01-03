@@ -110,7 +110,18 @@ func sbiScanStock(row *goquery.Selection) Stock {
 	}
 }
 
-func sbiScanFund(row *goquery.Selection) Fund {
+func getCategory(bow *browser.Browser, code string) string {
+	url, _ := url.Parse("https://site0.sbisec.co.jp/marble/fund/detail/achievement.do")
+	query := url.Query()
+	query.Set("Param6", code)
+	url.RawQuery = query.Encode()
+	bow.Open(url.String())
+	categoryHeader := filterTextContains(bow.Find("tr th div p"), toSjis("商品分類"))
+	category := categoryHeader.Parent().Parent().Parent().First().Next()
+	return strings.TrimSpace(toUtf8(category.Text()))
+}
+
+func sbiScanFund(bow *browser.Browser, row *goquery.Selection) Fund {
 	cells := iterate(row.Find("td"))
 
 	href := cells[0].Find("a").AttrOr("href", "Fund name not found")
@@ -122,10 +133,12 @@ func sbiScanFund(row *goquery.Selection) Fund {
 	units := iterateText(cells[2])
 	acquisitionUnitPrice := parseSeparatedInt(units[0])
 	currentUnitPrice := parseSeparatedInt(units[1])
+	category := getCategory(bow, code)
 
 	return Fund{
 		Name:                 name,
 		Code:                 code,
+		FundCategory:         category,
 		Amount:               int(amount),
 		AcquisitionUnitPrice: float64(acquisitionUnitPrice),
 		CurrentUnitPrice:     float64(currentUnitPrice),
@@ -160,7 +173,7 @@ func sbiScan(bow *browser.Browser) error {
 				continue
 			}
 
-			funds = append(funds, sbiScanFund(tr))
+			funds = append(funds, sbiScanFund(bow, tr))
 		}
 	}
 
