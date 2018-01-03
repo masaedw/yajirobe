@@ -133,7 +133,7 @@ func sbiScanFund(bow *browser.Browser, row *goquery.Selection) Fund {
 	units := iterateText(cells[2])
 	acquisitionUnitPrice := parseSeparatedInt(units[0])
 	currentUnitPrice := parseSeparatedInt(units[1])
-	category := getCategory(bow, code)
+	category := parseFundCategory(getCategory(bow, code))
 
 	return Fund{
 		Name:                 name,
