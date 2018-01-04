@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/text/message"
+
 	"github.com/PuerkitoBio/goquery"
 	"github.com/headzoo/surf/agent"
 	"github.com/headzoo/surf/browser"
@@ -147,7 +149,12 @@ func sbiScanFund(bow *browser.Browser, row *goquery.Selection) Fund {
 	}
 }
 
-func sbiScan(bow *browser.Browser) error {
+func sbiScan(bow *browser.Browser) ([]Stock, []Fund, error) {
+
+	if e := sbiAccountPage(bow); e != nil {
+		return nil, nil, e
+	}
+
 	stockFont := filterTextContains(bow.Find("font"), toSjis("銘柄"))
 	stockTable := stockFont.ParentsFiltered("table").First()
 
@@ -155,11 +162,6 @@ func sbiScan(bow *browser.Browser) error {
 
 	for _, tr := range iterate(stockTable.Find("tr"))[1:] {
 		stocks = append(stocks, sbiScanStock(tr))
-	}
-	fmt.Printf("stocks\n")
-
-	for _, stock := range stocks {
-		fmt.Printf("%+v\n", stock)
 	}
 
 	fundFont := filterTextContains(bow.Find("font"), toSjis("ファンド名"))
@@ -177,12 +179,36 @@ func sbiScan(bow *browser.Browser) error {
 		}
 	}
 
-	fmt.Print("funds\n")
-	for _, fund := range funds {
-		fmt.Printf("%+v\n", fund)
+	return stocks, funds, nil
+}
+
+type assetAllocation struct {
+	amount  float64
+	details map[FundCategory]*categoryDetail
+}
+
+type categoryDetail struct {
+	amount float64
+	funds  []Fund
+}
+
+func calcAllocation(funds []Fund) assetAllocation {
+	a := assetAllocation{
+		details: make(map[FundCategory]*categoryDetail),
 	}
 
-	return nil
+	for _, f := range funds {
+		a.amount += f.AcquisitionPrice
+		d, e := a.details[f.FundCategory]
+		if !e {
+			d = &categoryDetail{}
+			a.details[f.FundCategory] = d
+		}
+		d.amount += f.AcquisitionPrice
+		d.funds = append(d.funds, f)
+	}
+
+	return a
 }
 
 func main() {
@@ -194,8 +220,21 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Print("Login!\n")
+	s, f, err := sbiScan(bow)
+	if err != nil {
+		panic(err)
+	}
 
-	sbiAccountPage(bow)
-	sbiScan(bow)
+	a := calcAllocation(f)
+	p := message.NewPrinter(message.MatchLanguage("en"))
+
+	fmt.Println("stocks")
+	for _, s := range s {
+		p.Printf("%v\t%d\t%.0f%%\n", s.Name, s.CurrentPrice, s.ProfitAndLossRatio() * 100)
+	}
+
+	fmt.Println("funds")
+	for k, d := range a.details {
+		p.Printf("%v\t%.2f%%\t%.0f\n", k, (d.amount/a.amount)*100, d.amount)
+	}
 }

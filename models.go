@@ -15,6 +15,16 @@ type Stock struct {
 	CurrentPrice         int64  // 評価額
 }
 
+// ProfitAndLoss 損益
+func (s Stock) ProfitAndLoss() int64 {
+	return s.CurrentPrice - s.AcquisitionPrice
+}
+
+// ProfitAndLossRatio 損益率
+func (s Stock) ProfitAndLossRatio() float64 {
+	return float64(s.CurrentPrice - s.AcquisitionPrice) / float64(s.AcquisitionPrice)
+}
+
 // Fund 投資信託
 type Fund struct {
 	Name                 string       // 名称
@@ -25,6 +35,16 @@ type Fund struct {
 	CurrentUnitPrice     float64      // 基準価額
 	AcquisitionPrice     float64      // 取得金額
 	CurrentPrice         float64      // 評価額
+}
+
+// ProfitAndLoss 損益
+func (f Fund) ProfitAndLoss() float64 {
+	return f.CurrentPrice - f.AcquisitionPrice
+}
+
+// ProfitAndLossRatio 損益率
+func (f Fund) ProfitAndLossRatio() float64 {
+	return (f.CurrentPrice - f.AcquisitionPrice) / f.AcquisitionPrice
 }
 
 // FundCategory カテゴリ
