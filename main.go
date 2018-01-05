@@ -14,6 +14,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/headzoo/surf/agent"
 	"github.com/headzoo/surf/browser"
+	"github.com/olekukonko/tablewriter"
 	surf "gopkg.in/headzoo/surf.v1"
 )
 
@@ -211,6 +212,56 @@ func calcAllocation(funds []Fund) assetAllocation {
 	return a
 }
 
+func targetAllocation() map[FundCategory]float64 {
+	return map[FundCategory]float64{
+		DomesticStocks:      0.01 * 23,
+		InternationalStocks: 0.01 * 30,
+		EmergingStocks:      0.01 * 13,
+		DomesticBonds:       0.01 * 3,
+		InternationalBonds:  0.01 * 13,
+		EmergingBonds:       0.01 * 3,
+		DomesticREIT:        0.01 * 5,
+		InternationalREIT:   0.01 * 5,
+		Comodity:            0.01 * 5,
+	}
+}
+
+func renderStocks(sx []Stock) {
+	table := tablewriter.NewWriter(os.Stdout)
+	p := message.NewPrinter(message.MatchLanguage("en"))
+
+	table.SetHeader([]string{"Name", "Current", "P/L Ratio"})
+	table.SetColumnAlignment([]int{
+		tablewriter.ALIGN_DEFAULT,
+		tablewriter.ALIGN_RIGHT,
+		tablewriter.ALIGN_RIGHT,
+	})
+
+	for _, s := range sx {
+		table.Append([]string{s.Name, p.Sprintf("%d", s.CurrentPrice), p.Sprintf("%.0f%%", s.ProfitAndLossRatio()*100)})
+	}
+	table.Render()
+}
+
+func renderFunds(a assetAllocation) {
+	table := tablewriter.NewWriter(os.Stdout)
+	p := message.NewPrinter(message.MatchLanguage("en"))
+
+	table.SetHeader([]string{"Category", "Name", "Current", "P/L Ratio"})
+	table.SetColumnAlignment([]int{
+		tablewriter.ALIGN_DEFAULT,
+		tablewriter.ALIGN_DEFAULT,
+		tablewriter.ALIGN_RIGHT,
+		tablewriter.ALIGN_RIGHT,
+	})
+	for k, d := range a.details {
+		for _, f := range d.funds {
+			table.Append([]string{p.Sprint(k), f.Name, p.Sprintf("%.2f", f.CurrentPrice), p.Sprintf("%.0f%%", f.ProfitAndLossRatio()*100)})
+		}
+	}
+	table.Render()
+}
+
 func main() {
 	userID := os.Getenv("SBI_USER_ID")
 	userPassword := os.Getenv("SBI_USER_PASSWORD")
@@ -226,15 +277,10 @@ func main() {
 	}
 
 	a := calcAllocation(f)
-	p := message.NewPrinter(message.MatchLanguage("en"))
 
-	fmt.Println("stocks")
-	for _, s := range s {
-		p.Printf("%s\t%9d  %5.0f%%\n", s.Name, s.CurrentPrice, s.ProfitAndLossRatio() * 100)
-	}
+	renderStocks(s)
 
-	fmt.Println("funds")
-	for k, d := range a.details {
-		p.Printf("%s\t%5.2f%%  %9.0f\n", k, (d.amount/a.amount)*100, d.amount)
-	}
+	fmt.Println("")
+
+	renderFunds(a)
 }
