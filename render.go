@@ -12,7 +12,7 @@ func renderStocks(sx []Stock) {
 	table := tablewriter.NewWriter(os.Stdout)
 	p := message.NewPrinter(message.MatchLanguage("en"))
 
-	table.SetHeader([]string{"Name", "Current", "P/L Ratio"})
+	table.SetHeader([]string{"Name", "Current", "P/L"})
 	table.SetColumnAlignment([]int{
 		tablewriter.ALIGN_DEFAULT,
 		tablewriter.ALIGN_RIGHT,
@@ -20,7 +20,7 @@ func renderStocks(sx []Stock) {
 	})
 
 	for _, s := range sx {
-		table.Append([]string{s.Name, p.Sprintf("%d", s.CurrentPrice), p.Sprintf("%.0f%%", s.ProfitAndLossRatio()*100)})
+		table.Append([]string{s.Name, p.Sprintf("%d", s.CurrentPrice), p.Sprintf("%.1f%%", s.ProfitAndLossRatio()*100)})
 	}
 	table.Render()
 }
