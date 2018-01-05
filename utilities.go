@@ -1,16 +1,15 @@
 package main
 
 import (
-	"regexp"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
-	"golang.org/x/net/html"
-
 	"github.com/PuerkitoBio/goquery"
 	"github.com/headzoo/surf/browser"
+	"golang.org/x/net/html"
 	"golang.org/x/text/encoding/japanese"
 )
 
