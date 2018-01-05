@@ -110,7 +110,7 @@ func sbiScanStock(row *goquery.Selection) Stock {
 	}
 }
 
-func getCategory(bow *browser.Browser, code string) string {
+func sbiGetFundCategory(bow *browser.Browser, code string) string {
 	url, _ := url.Parse("https://site0.sbisec.co.jp/marble/fund/detail/achievement.do")
 	query := url.Query()
 	query.Set("Param6", code)
@@ -133,12 +133,12 @@ func sbiScanFund(bow *browser.Browser, row *goquery.Selection) Fund {
 	units := iterateText(cells[2])
 	acquisitionUnitPrice := parseSeparatedInt(units[0])
 	currentUnitPrice := parseSeparatedInt(units[1])
-	category := parseFundCategory(getCategory(bow, code))
+	category := parseAssetClass(sbiGetFundCategory(bow, code))
 
 	return Fund{
 		Name:                 name,
 		Code:                 code,
-		FundCategory:         category,
+		AssetClass:           category,
 		Amount:               int(amount),
 		AcquisitionUnitPrice: float64(acquisitionUnitPrice),
 		CurrentUnitPrice:     float64(currentUnitPrice),
@@ -148,7 +148,6 @@ func sbiScanFund(bow *browser.Browser, row *goquery.Selection) Fund {
 }
 
 func sbiScan(bow *browser.Browser) ([]Stock, []Fund, error) {
-
 	if e := sbiAccountPage(bow); e != nil {
 		return nil, nil, e
 	}
@@ -180,37 +179,72 @@ func sbiScan(bow *browser.Browser) ([]Stock, []Fund, error) {
 	return stocks, funds, nil
 }
 
-type assetAllocation struct {
-	amount  float64
-	details map[FundCategory]*categoryDetail
-}
-
-type categoryDetail struct {
-	amount float64
-	funds  []Fund
-}
-
-func calcAllocation(funds []Fund) assetAllocation {
-	a := assetAllocation{
-		details: make(map[FundCategory]*categoryDetail),
+func fundsFromETF(stocks []Stock) []Fund {
+	etf := map[int]AssetClass{
+		1680: InternationalStocks,
 	}
 
-	for _, f := range funds {
-		a.amount += f.AcquisitionPrice
-		d, e := a.details[f.FundCategory]
-		if !e {
-			d = &categoryDetail{}
-			a.details[f.FundCategory] = d
+	fs := []Fund{}
+
+	for _, s := range stocks {
+		c, e := etf[s.Code]
+		if e {
+			fs = append(fs, Fund{
+				Name:                 s.Name,
+				Code:                 fmt.Sprint(s.Code),
+				Amount:               s.Amount,
+				AssetClass:           c,
+				AcquisitionUnitPrice: float64(s.AcquisitionUnitPrice) * 10000,
+				CurrentUnitPrice:     float64(s.CurrentUnitPrice) * 10000,
+				AcquisitionPrice:     float64(s.AcquisitionPrice),
+				CurrentPrice:         float64(s.CurrentPrice),
+			})
 		}
-		d.amount += f.AcquisitionPrice
-		d.funds = append(d.funds, f)
+	}
+
+	return fs
+}
+
+func calcAllocation(stocks []Stock, funds []Fund) AssetAllocation {
+	mergedFunds := map[string]*fundUnited{}
+
+	funds = append([]Fund{}, funds...)
+	funds = append(funds, fundsFromETF(stocks)...)
+
+	for _, f := range funds {
+		fu, e := mergedFunds[f.Code]
+		if e {
+			fu.merge(f)
+		} else {
+			mergedFunds[f.Code] = newFundUnited(f)
+		}
+	}
+
+	a := AssetAllocation{
+		details: make(map[AssetClass]*AssetClassDetail),
+	}
+
+	for _, fu := range mergedFunds {
+		a.aprice += fu.AcquisitionPrice
+		a.cprice += fu.CurrentPrice
+		d, e := a.details[fu.AssetClass]
+		if e {
+			d.aprice += fu.AcquisitionPrice
+			d.cprice += fu.CurrentPrice
+		} else {
+			a.details[fu.AssetClass] = &AssetClassDetail{
+				class:  fu.AssetClass,
+				aprice: fu.AcquisitionPrice,
+				cprice: fu.CurrentPrice,
+			}
+		}
 	}
 
 	return a
 }
 
-func targetAllocation() map[FundCategory]float64 {
-	return map[FundCategory]float64{
+func getAllocationTarget() AllocationTarget {
+	return AllocationTarget{
 		DomesticStocks:      0.01 * 23,
 		InternationalStocks: 0.01 * 30,
 		EmergingStocks:      0.01 * 13,
@@ -237,11 +271,11 @@ func main() {
 		panic(err)
 	}
 
-	a := calcAllocation(f)
+	a := calcAllocation(s, f)
 
 	renderStocks(s)
 
 	fmt.Println("")
 
-	renderFunds(a)
+	renderFunds(a, getAllocationTarget())
 }

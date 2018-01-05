@@ -22,19 +22,19 @@ func (s Stock) ProfitAndLoss() int64 {
 
 // ProfitAndLossRatio 損益率
 func (s Stock) ProfitAndLossRatio() float64 {
-	return float64(s.CurrentPrice - s.AcquisitionPrice) / float64(s.AcquisitionPrice)
+	return float64(s.CurrentPrice-s.AcquisitionPrice) / float64(s.AcquisitionPrice)
 }
 
 // Fund 投資信託
 type Fund struct {
-	Name                 string       // 名称
-	Code                 string       // 協会コード
-	Amount               int          // 保有口数
-	FundCategory         FundCategory // カテゴリ
-	AcquisitionUnitPrice float64      // 取得単価
-	CurrentUnitPrice     float64      // 基準価額
-	AcquisitionPrice     float64      // 取得金額
-	CurrentPrice         float64      // 評価額
+	Name                 string     // 名称
+	Code                 string     // 協会コード
+	Amount               int        // 保有口数
+	AssetClass           AssetClass // アセットクラス
+	AcquisitionUnitPrice float64    // 取得単価
+	CurrentUnitPrice     float64    // 基準価額
+	AcquisitionPrice     float64    // 取得金額
+	CurrentPrice         float64    // 評価額
 }
 
 // ProfitAndLoss 損益
@@ -47,12 +47,12 @@ func (f Fund) ProfitAndLossRatio() float64 {
 	return (f.CurrentPrice - f.AcquisitionPrice) / f.AcquisitionPrice
 }
 
-// FundCategory カテゴリ
-type FundCategory int
+// AssetClass アセットクラス
+type AssetClass int
 
 const (
 	// Other その他
-	Other = FundCategory(iota)
+	Other = AssetClass(iota)
 	// DomesticStocks 国内株式
 	DomesticStocks
 	// DomesticBonds 国内債券
@@ -81,6 +81,24 @@ const (
 	BullBear
 )
 
+// AssetClasses アセットクラス一覧
+var AssetClasses = []AssetClass{
+	DomesticStocks,
+	InternationalStocks,
+	EmergingStocks,
+	DomesticBonds,
+	InternationalBonds,
+	EmergingBonds,
+	DomesticREIT,
+	InternationalREIT,
+	EmergingREIT,
+	Balance,
+	Comodity,
+	HedgeFund,
+	BullBear,
+	Other,
+}
+
 var (
 	domesticStocksPattern      = regexp.MustCompile("国内株式")
 	domesticBondsPattern       = regexp.MustCompile("国内債券")
@@ -97,7 +115,7 @@ var (
 	bullBearPattern            = regexp.MustCompile("ブル・ベア")
 )
 
-func (c FundCategory) String() string {
+func (c AssetClass) String() string {
 	switch c {
 	default:
 		return "その他"
@@ -130,7 +148,7 @@ func (c FundCategory) String() string {
 	}
 }
 
-func parseFundCategory(s string) FundCategory {
+func parseAssetClass(s string) AssetClass {
 	switch {
 	default:
 		return Other
@@ -161,4 +179,47 @@ func parseFundCategory(s string) FundCategory {
 	case bullBearPattern.MatchString(s):
 		return BullBear
 	}
+}
+
+// AllocationTarget 目標アロケーション
+type AllocationTarget map[AssetClass]float64
+
+// AssetAllocation 現在のアセットアロケーション
+type AssetAllocation struct {
+	aprice  float64
+	cprice  float64
+	details map[AssetClass]*AssetClassDetail
+}
+
+type fundUnited struct {
+	Fund
+	sources []Fund
+}
+
+func newFundUnited(s Fund) *fundUnited {
+	return &fundUnited{Fund: s, sources: []Fund{s}}
+}
+
+func (lhs *fundUnited) merge(rhs Fund) {
+	newAmount := lhs.Amount + rhs.Amount
+	aprice := lhs.AcquisitionPrice + rhs.AcquisitionPrice
+	cprice := lhs.CurrentPrice + rhs.CurrentPrice
+	aunit := aprice / float64(newAmount) * 10000
+	cunit := cprice / float64(newAmount) * 10000
+
+	lhs.Amount = newAmount
+	lhs.AcquisitionPrice = aprice
+	lhs.AcquisitionUnitPrice = aunit
+	lhs.CurrentPrice = cprice
+	lhs.CurrentUnitPrice = cunit
+
+	lhs.sources = append(lhs.sources, rhs)
+}
+
+// AssetClassDetail 資産カテゴリごとの明細
+type AssetClassDetail struct {
+	class  AssetClass
+	aprice float64
+	cprice float64
+	funds  []fundUnited
 }
