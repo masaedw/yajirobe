@@ -230,11 +230,11 @@ func main() {
 
 	fmt.Println("stocks")
 	for _, s := range s {
-		p.Printf("%v\t%d\t%.0f%%\n", s.Name, s.CurrentPrice, s.ProfitAndLossRatio() * 100)
+		p.Printf("%s\t%9d  %5.0f%%\n", s.Name, s.CurrentPrice, s.ProfitAndLossRatio() * 100)
 	}
 
 	fmt.Println("funds")
 	for k, d := range a.details {
-		p.Printf("%v\t%.2f%%\t%.0f\n", k, (d.amount/a.amount)*100, d.amount)
+		p.Printf("%s\t%5.2f%%  %9.0f\n", k, (d.amount/a.amount)*100, d.amount)
 	}
 }
