@@ -223,3 +223,42 @@ type AssetClassDetail struct {
 	cprice float64
 	funds  []fundUnited
 }
+
+// NewAssetAllocation アセットアロケーション計算
+func NewAssetAllocation(stocks []Stock, funds []Fund) AssetAllocation {
+	mergedFunds := map[string]*fundUnited{}
+
+	funds = append([]Fund{}, funds...)
+	funds = append(funds, fundsFromETF(stocks)...)
+
+	for _, f := range funds {
+		fu, e := mergedFunds[f.Code]
+		if e {
+			fu.merge(f)
+		} else {
+			mergedFunds[f.Code] = newFundUnited(f)
+		}
+	}
+
+	a := AssetAllocation{
+		details: make(map[AssetClass]*AssetClassDetail),
+	}
+
+	for _, fu := range mergedFunds {
+		a.aprice += fu.AcquisitionPrice
+		a.cprice += fu.CurrentPrice
+		d, e := a.details[fu.AssetClass]
+		if e {
+			d.aprice += fu.AcquisitionPrice
+			d.cprice += fu.CurrentPrice
+		} else {
+			a.details[fu.AssetClass] = &AssetClassDetail{
+				class:  fu.AssetClass,
+				aprice: fu.AcquisitionPrice,
+				cprice: fu.CurrentPrice,
+			}
+		}
+	}
+
+	return a
+}
