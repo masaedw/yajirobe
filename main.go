@@ -239,5 +239,5 @@ func main() {
 
 	fmt.Println("")
 
-	renderFunds(a, getAllocationTarget())
+	renderAllocation(a, getAllocationTarget())
 }
