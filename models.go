@@ -181,16 +181,6 @@ func parseAssetClass(s string) AssetClass {
 	}
 }
 
-// AllocationTarget 目標アロケーション
-type AllocationTarget map[AssetClass]float64
-
-// AssetAllocation 現在のアセットアロケーション
-type AssetAllocation struct {
-	aprice  float64
-	cprice  float64
-	details map[AssetClass]*AssetClassDetail
-}
-
 type fundUnited struct {
 	Fund
 	sources []Fund
@@ -221,7 +211,45 @@ type AssetClassDetail struct {
 	class  AssetClass
 	aprice float64
 	cprice float64
-	funds  []fundUnited
+	funds  map[string]*fundUnited
+}
+
+func newAssetClassDetail(fu *fundUnited) *AssetClassDetail {
+	return &AssetClassDetail{
+		class:  fu.AssetClass,
+		aprice: fu.AcquisitionPrice,
+		cprice: fu.CurrentPrice,
+		funds: map[string]*fundUnited{
+			fu.Code: fu,
+		},
+	}
+}
+
+func (d *AssetClassDetail) merge(fu *fundUnited) {
+	d.aprice += fu.AcquisitionPrice
+	d.cprice += fu.CurrentPrice
+	d.funds[fu.Code] = fu
+}
+
+// AllocationTarget 目標アロケーション
+type AllocationTarget map[AssetClass]float64
+
+// AssetAllocation 現在のアセットアロケーション
+type AssetAllocation struct {
+	aprice  float64
+	cprice  float64
+	details map[AssetClass]*AssetClassDetail
+}
+
+func (a *AssetAllocation) merge(fu *fundUnited) {
+	a.aprice += fu.AcquisitionPrice
+	a.cprice += fu.CurrentPrice
+	d, e := a.details[fu.AssetClass]
+	if e {
+		d.merge(fu)
+	} else {
+		a.details[fu.AssetClass] = newAssetClassDetail(fu)
+	}
 }
 
 // NewAssetAllocation アセットアロケーション計算
@@ -241,23 +269,11 @@ func NewAssetAllocation(stocks []Stock, funds []Fund) AssetAllocation {
 	}
 
 	a := AssetAllocation{
-		details: make(map[AssetClass]*AssetClassDetail),
+		details: map[AssetClass]*AssetClassDetail{},
 	}
 
 	for _, fu := range mergedFunds {
-		a.aprice += fu.AcquisitionPrice
-		a.cprice += fu.CurrentPrice
-		d, e := a.details[fu.AssetClass]
-		if e {
-			d.aprice += fu.AcquisitionPrice
-			d.cprice += fu.CurrentPrice
-		} else {
-			a.details[fu.AssetClass] = &AssetClassDetail{
-				class:  fu.AssetClass,
-				aprice: fu.AcquisitionPrice,
-				cprice: fu.CurrentPrice,
-			}
-		}
+		a.merge(fu)
 	}
 
 	return a
