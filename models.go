@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"regexp"
 )
 
@@ -250,6 +251,32 @@ func (a *AssetAllocation) merge(fu *fundUnited) {
 	} else {
 		a.details[fu.AssetClass] = newAssetClassDetail(fu)
 	}
+}
+
+func fundsFromETF(stocks []Stock) []Fund {
+	etf := map[int]AssetClass{
+		1680: InternationalStocks,
+	}
+
+	fs := []Fund{}
+
+	for _, s := range stocks {
+		c, e := etf[s.Code]
+		if e {
+			fs = append(fs, Fund{
+				Name:                 s.Name,
+				Code:                 fmt.Sprint(s.Code),
+				Amount:               s.Amount,
+				AssetClass:           c,
+				AcquisitionUnitPrice: float64(s.AcquisitionUnitPrice) * 10000,
+				CurrentUnitPrice:     float64(s.CurrentUnitPrice) * 10000,
+				AcquisitionPrice:     float64(s.AcquisitionPrice),
+				CurrentPrice:         float64(s.CurrentPrice),
+			})
+		}
+	}
+
+	return fs
 }
 
 // NewAssetAllocation アセットアロケーション計算

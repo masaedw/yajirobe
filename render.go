@@ -30,17 +30,28 @@ func renderAllocation(a AssetAllocation, t AllocationTarget) {
 	p := message.NewPrinter(message.MatchLanguage("en"))
 
 	//table.SetAutoMergeCells(true)
-	table.SetHeader([]string{"Class", "Target", "Actual", "Name", "Current", "P/L"})
+	table.SetHeader([]string{
+		"Class",
+		"Target",
+		"Actual",
+		"Current",
+		"P/L",
+	})
 	table.SetColumnAlignment([]int{
 		tablewriter.ALIGN_DEFAULT,
 		tablewriter.ALIGN_RIGHT,
 		tablewriter.ALIGN_RIGHT,
-		tablewriter.ALIGN_DEFAULT,
 		tablewriter.ALIGN_RIGHT,
 		tablewriter.ALIGN_RIGHT,
 	})
 
-	table.Append([]string{"全体", "", "", "", p.Sprintf("%.2f", a.cprice), p.Sprintf("%.1f%%", a.cprice/a.aprice*100-100)})
+	table.Append([]string{
+		"全体", // Class
+		"",   // Target
+		"",   // Actual
+		p.Sprintf("%.2f", a.cprice),                    // Current
+		p.Sprintf("%.1f%%", a.cprice/a.aprice*100-100), // P/L
+	})
 
 	for _, class := range AssetClasses {
 		detail, de := a.details[class]
@@ -55,17 +66,15 @@ func renderAllocation(a AssetAllocation, t AllocationTarget) {
 				class.String(),                    // Class
 				fmt.Sprintf("%.1f%%", target*100), // Target
 				"0.0%", // Actual
-				"",     // Name
 				"0",    // Current
 				"-",    // P/L
 			}
 			table.Append(row)
 		} else {
 			row := []string{
-				class.String(),                                    // Class
-				fmt.Sprintf("%.1f%%", target*100),                 // Target
-				fmt.Sprintf("%.1f%%", detail.cprice/a.cprice*100), // Actual
-				"", // Name
+				class.String(),                                           // Class
+				fmt.Sprintf("%.1f%%", target*100),                        // Target
+				fmt.Sprintf("%.1f%%", detail.cprice/a.cprice*100),        // Actual
 				p.Sprintf("%.2f", detail.cprice),                         // Current
 				p.Sprintf("%.1f%%", detail.cprice/detail.aprice*100-100), // P/L
 			}
