@@ -108,10 +108,10 @@ func sbiScanStock(row *goquery.Selection) Stock {
 	}
 }
 
-func sbiGetFundCategory(bow *browser.Browser, code string) string {
+func sbiGetFundCategory(bow *browser.Browser, code FundCode) string {
 	url, _ := url.Parse("https://site0.sbisec.co.jp/marble/fund/detail/achievement.do")
 	query := url.Query()
-	query.Set("Param6", code)
+	query.Set("Param6", string(code))
 	url.RawQuery = query.Encode()
 	bow.Open(url.String())
 	categoryHeader := filterTextContains(bow.Find("tr th div p"), toSjis("商品分類"))
@@ -126,7 +126,7 @@ func sbiScanFund(bow *browser.Browser, row *goquery.Selection) Fund {
 	url, _ := url.Parse(href)
 	query := url.Query()
 	name := toUtf8(query.Get("sec_name"))
-	code := query.Get("fund_sec_code")
+	code := FundCode(query.Get("fund_sec_code"))
 	amount := parseSeparatedInt(cells[1].Text())
 	units := iterateText(cells[2])
 	acquisitionUnitPrice := parseSeparatedInt(units[0])

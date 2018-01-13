@@ -26,10 +26,13 @@ func (s Stock) ProfitAndLossRatio() float64 {
 	return float64(s.CurrentPrice-s.AcquisitionPrice) / float64(s.AcquisitionPrice)
 }
 
+// FundCode 協会コード
+type FundCode string
+
 // Fund 投資信託
 type Fund struct {
 	Name                 string     // 名称
-	Code                 string     // 協会コード
+	Code                 FundCode   // 協会コード
 	Amount               int        // 保有口数
 	AssetClass           AssetClass // アセットクラス
 	AcquisitionUnitPrice float64    // 取得単価
@@ -212,7 +215,7 @@ type AssetClassDetail struct {
 	class  AssetClass
 	aprice float64
 	cprice float64
-	funds  map[string]*fundUnited
+	funds  map[FundCode]*fundUnited
 }
 
 func newAssetClassDetail(fu *fundUnited) *AssetClassDetail {
@@ -220,7 +223,7 @@ func newAssetClassDetail(fu *fundUnited) *AssetClassDetail {
 		class:  fu.AssetClass,
 		aprice: fu.AcquisitionPrice,
 		cprice: fu.CurrentPrice,
-		funds: map[string]*fundUnited{
+		funds: map[FundCode]*fundUnited{
 			fu.Code: fu,
 		},
 	}
@@ -265,7 +268,7 @@ func fundsFromETF(stocks []Stock) []Fund {
 		if e {
 			fs = append(fs, Fund{
 				Name:                 s.Name,
-				Code:                 fmt.Sprint(s.Code),
+				Code:                 FundCode(fmt.Sprint(s.Code)),
 				Amount:               s.Amount,
 				AssetClass:           c,
 				AcquisitionUnitPrice: float64(s.AcquisitionUnitPrice) * 10000,
@@ -281,7 +284,7 @@ func fundsFromETF(stocks []Stock) []Fund {
 
 // NewAssetAllocation アセットアロケーション計算
 func NewAssetAllocation(stocks []Stock, funds []Fund) AssetAllocation {
-	mergedFunds := map[string]*fundUnited{}
+	mergedFunds := map[FundCode]*fundUnited{}
 
 	funds = append([]Fund{}, funds...)
 	funds = append(funds, fundsFromETF(stocks)...)
