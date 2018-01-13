@@ -28,6 +28,16 @@ type CacheNotExistsError struct {
 	Code FundCode
 }
 
+// IsCacheNotExists eがCacheNotExistsErrorならtrueを返す
+func IsCacheNotExists(e error) bool {
+	switch e.(type) {
+	case *CacheNotExistsError:
+		return true
+	default:
+		return false
+	}
+}
+
 func (e *CacheNotExistsError) Error() string {
 	return fmt.Sprintf("no cached info of the code: %v", e.Code)
 }
@@ -50,7 +60,7 @@ func cachePath() (string, error) {
 }
 
 // NewFileFundInfoCache NewFileFundInfoCacheを作る
-func NewFileFundInfoCache() (*FileFundInfoCache, error) {
+func NewFileFundInfoCache() (FundInfoCache, error) {
 	dirPath, err := cachePath()
 	if err != nil {
 		return nil, err
