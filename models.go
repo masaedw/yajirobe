@@ -186,15 +186,17 @@ func parseAssetClass(s string) AssetClass {
 }
 
 type fundUnited struct {
-	Fund
-	sources []Fund
+	*Fund
+	sources []*Fund
 }
 
-func newFundUnited(s Fund) *fundUnited {
-	return &fundUnited{Fund: s, sources: []Fund{s}}
+func newFundUnited(s *Fund) *fundUnited {
+	f := &Fund{}
+	*f = *s
+	return &fundUnited{Fund: f, sources: []*Fund{s}}
 }
 
-func (lhs *fundUnited) merge(rhs Fund) {
+func (lhs *fundUnited) merge(rhs *Fund) {
 	newAmount := lhs.Amount + rhs.Amount
 	aprice := lhs.AcquisitionPrice + rhs.AcquisitionPrice
 	cprice := lhs.CurrentPrice + rhs.CurrentPrice
@@ -256,17 +258,17 @@ func (a *AssetAllocation) merge(fu *fundUnited) {
 	}
 }
 
-func fundsFromETF(stocks []Stock) []Fund {
+func fundsFromETF(stocks []*Stock) []*Fund {
 	etf := map[int]AssetClass{
 		1680: InternationalStocks,
 	}
 
-	fs := []Fund{}
+	fs := []*Fund{}
 
 	for _, s := range stocks {
 		c, e := etf[s.Code]
 		if e {
-			fs = append(fs, Fund{
+			fs = append(fs, &Fund{
 				Name:                 s.Name,
 				Code:                 FundCode(fmt.Sprint(s.Code)),
 				Amount:               s.Amount,
@@ -283,10 +285,10 @@ func fundsFromETF(stocks []Stock) []Fund {
 }
 
 // NewAssetAllocation アセットアロケーション計算
-func NewAssetAllocation(stocks []Stock, funds []Fund) AssetAllocation {
+func NewAssetAllocation(stocks []*Stock, funds []*Fund) AssetAllocation {
 	mergedFunds := map[FundCode]*fundUnited{}
 
-	funds = append([]Fund{}, funds...)
+	funds = append([]*Fund{}, funds...)
 	funds = append(funds, fundsFromETF(stocks)...)
 
 	for _, f := range funds {

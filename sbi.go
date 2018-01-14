@@ -81,7 +81,7 @@ func sbiAccountPage(bow *browser.Browser) error {
 	return nil
 }
 
-func sbiScanStock(row *goquery.Selection) Stock {
+func sbiScanStock(row *goquery.Selection) *Stock {
 	cells := iterate(row.Find("td"))
 
 	nameCode := toUtf8(cells[0].Text())
@@ -97,7 +97,7 @@ func sbiScanStock(row *goquery.Selection) Stock {
 	acquisitionPrice := acquisitionUnitPrice * int64(amount)
 	currentPrice := currentUnitPrice * int64(amount)
 
-	return Stock{
+	return &Stock{
 		Name:                 name,
 		Code:                 code,
 		Amount:               amount,
@@ -108,7 +108,7 @@ func sbiScanStock(row *goquery.Selection) Stock {
 	}
 }
 
-func sbiGetFundCategory(bow *browser.Browser, code FundCode) string {
+func sbiGetFundInfo(bow *browser.Browser, code FundCode) *FundInfo {
 	url, _ := url.Parse("https://site0.sbisec.co.jp/marble/fund/detail/achievement.do")
 	query := url.Query()
 	query.Set("Param6", string(code))
@@ -116,36 +116,61 @@ func sbiGetFundCategory(bow *browser.Browser, code FundCode) string {
 	bow.Open(url.String())
 	categoryHeader := filterTextContains(bow.Find("tr th div p"), toSjis("商品分類"))
 	category := categoryHeader.Parent().Parent().Parent().First().Next()
-	return strings.TrimSpace(toUtf8(category.Text()))
+	nameHeader := strings.TrimSpace(toUtf8(bow.Find("h3").Text()))
+	names := strings.Split(nameHeader, "－")
+	name := names[0]
+	if len(names) > 1 {
+		name = names[1]
+	}
+	assetClass := parseAssetClass(strings.TrimSpace(toUtf8(category.Text())))
+
+	return &FundInfo{
+		Name:  name,
+		Class: assetClass,
+		Code:  code,
+	}
 }
 
-func sbiScanFund(bow *browser.Browser, row *goquery.Selection) Fund {
+func sbiScanFund(bow *browser.Browser, row *goquery.Selection, cache FundInfoCache) (*Fund, error) {
 	cells := iterate(row.Find("td"))
 
 	href := cells[0].Find("a").AttrOr("href", "Fund name not found")
 	url, _ := url.Parse(href)
 	query := url.Query()
-	name := toUtf8(query.Get("sec_name"))
 	code := FundCode(query.Get("fund_sec_code"))
 	amount := parseSeparatedInt(cells[1].Text())
 	units := iterateText(cells[2])
 	acquisitionUnitPrice := parseSeparatedInt(units[0])
 	currentUnitPrice := parseSeparatedInt(units[1])
-	category := parseAssetClass(sbiGetFundCategory(bow, code))
 
-	return Fund{
+	fi, err := cache.Get(code)
+	if err != nil && !IsCacheNotExists(err) {
+		return nil, err
+	}
+
+	name := fi.Name
+	class := fi.Class
+
+	if err != nil { // Cacheにヒットしなかった
+		fi = sbiGetFundInfo(bow, code)
+		if err = cache.Set(fi); err != nil {
+			return nil, err
+		}
+	}
+
+	return &Fund{
 		Name:                 name,
 		Code:                 code,
-		AssetClass:           category,
+		AssetClass:           class,
 		Amount:               int(amount),
 		AcquisitionUnitPrice: float64(acquisitionUnitPrice),
 		CurrentUnitPrice:     float64(currentUnitPrice),
 		AcquisitionPrice:     float64(acquisitionUnitPrice) * float64(amount) / 10000,
 		CurrentPrice:         float64(currentUnitPrice) * float64(amount) / 10000,
-	}
+	}, nil
 }
 
-func sbiScan(bow *browser.Browser) ([]Stock, []Fund, error) {
+func sbiScan(bow *browser.Browser, cache FundInfoCache) ([]*Stock, []*Fund, error) {
 	if e := sbiAccountPage(bow); e != nil {
 		return nil, nil, e
 	}
@@ -153,7 +178,7 @@ func sbiScan(bow *browser.Browser) ([]Stock, []Fund, error) {
 	stockFont := filterTextContains(bow.Find("font"), toSjis("銘柄"))
 	stockTable := stockFont.ParentsFiltered("table").First()
 
-	stocks := []Stock{}
+	stocks := []*Stock{}
 
 	for _, tr := range iterate(stockTable.Find("tr"))[1:] {
 		stocks = append(stocks, sbiScanStock(tr))
@@ -162,15 +187,18 @@ func sbiScan(bow *browser.Browser) ([]Stock, []Fund, error) {
 	fundFont := filterTextContains(bow.Find("font"), toSjis("ファンド名"))
 	fundTables := iterate(fundFont.Parent().Parent().Parent().Parent())
 
-	funds := []Fund{}
+	funds := []*Fund{}
 
 	for _, table := range fundTables {
 		for i, tr := range iterate(table.Find("tr")) {
 			if i%2 == 0 {
 				continue
 			}
-
-			funds = append(funds, sbiScanFund(bow, tr))
+			f, e := sbiScanFund(bow, tr, cache)
+			if e != nil {
+				return nil, nil, e
+			}
+			funds = append(funds, f)
 		}
 	}
 

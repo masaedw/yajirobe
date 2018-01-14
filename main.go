@@ -28,7 +28,12 @@ func main() {
 		panic(err)
 	}
 
-	s, f, err := sbiScan(bow)
+	cache, err := NewFileFundInfoCache()
+	if err != nil {
+		panic(err)
+	}
+
+	s, f, err := sbiScan(bow, cache)
 	if err != nil {
 		panic(err)
 	}
