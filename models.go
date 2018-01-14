@@ -17,12 +17,12 @@ type Stock struct {
 }
 
 // ProfitAndLoss 損益
-func (s Stock) ProfitAndLoss() int64 {
+func (s *Stock) ProfitAndLoss() int64 {
 	return s.CurrentPrice - s.AcquisitionPrice
 }
 
 // ProfitAndLossRatio 損益率
-func (s Stock) ProfitAndLossRatio() float64 {
+func (s *Stock) ProfitAndLossRatio() float64 {
 	return float64(s.CurrentPrice-s.AcquisitionPrice) / float64(s.AcquisitionPrice)
 }
 
@@ -42,12 +42,12 @@ type Fund struct {
 }
 
 // ProfitAndLoss 損益
-func (f Fund) ProfitAndLoss() float64 {
+func (f *Fund) ProfitAndLoss() float64 {
 	return f.CurrentPrice - f.AcquisitionPrice
 }
 
 // ProfitAndLossRatio 損益率
-func (f Fund) ProfitAndLossRatio() float64 {
+func (f *Fund) ProfitAndLossRatio() float64 {
 	return (f.CurrentPrice - f.AcquisitionPrice) / f.AcquisitionPrice
 }
 
