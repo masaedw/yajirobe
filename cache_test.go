@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -76,5 +77,15 @@ func TestFileSetGet(t *testing.T) {
 		cache.Code == info.Code &&
 		cache.Name == info.Name) {
 		t.Fatalf("expected %v but got %v", info, cache)
+	}
+}
+
+func TestIsCacheNotExists(t *testing.T) {
+	if (!IsCacheNotExists(&CacheNotExistsError{})) {
+		t.Fatal("expected true but got false")
+	}
+
+	if (IsCacheNotExists(errors.New("some error"))) {
+		t.Fatal("expected false but got true")
 	}
 }
