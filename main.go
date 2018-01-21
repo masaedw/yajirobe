@@ -3,6 +3,15 @@ package main
 import (
 	"fmt"
 	"os"
+
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
+)
+
+var (
+	app   = kingpin.New("yajirobe", "Asset allocation rebalance tool")
+	debug = app.Flag("debug", "Enable debug mode").Default("false").Bool()
+
+	show = app.Command("show", "Show your asset allocation").Default()
 )
 
 func getAllocationTarget() AllocationTarget {
