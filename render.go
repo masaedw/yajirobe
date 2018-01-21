@@ -25,7 +25,7 @@ func renderStocks(sx []Stock) {
 	table.Render()
 }
 
-func renderAllocation(a AssetAllocation, t AllocationTarget) {
+func renderAllocation(a AssetAllocation) {
 	table := tablewriter.NewWriter(os.Stdout)
 	p := message.NewPrinter(message.MatchLanguage("en"))
 
@@ -53,33 +53,15 @@ func renderAllocation(a AssetAllocation, t AllocationTarget) {
 		p.Sprintf("%.1f%%", a.cprice/a.aprice*100-100), // P/L
 	})
 
-	for _, class := range AssetClasses {
-		detail, de := a.details[class]
-		target, te := t[class]
-
-		if !de && !te {
-			continue
+	for class, detail := range a.details {
+		row := []string{
+			class.String(),                                 // Class
+			fmt.Sprintf("%.1f%%", detail.targetRatio*100),  // Target
+			fmt.Sprintf("%.1f%%", detail.currentRatio*100), // Actual
+			p.Sprintf("%.2f", detail.cprice),               // Current
+			p.Sprintf("%.1f%%", detail.pl-100),             // P/L
 		}
-
-		if !de {
-			row := []string{
-				class.String(),                    // Class
-				fmt.Sprintf("%.1f%%", target*100), // Target
-				"0.0%", // Actual
-				"0",    // Current
-				"-",    // P/L
-			}
-			table.Append(row)
-		} else {
-			row := []string{
-				class.String(),                                           // Class
-				fmt.Sprintf("%.1f%%", target*100),                        // Target
-				fmt.Sprintf("%.1f%%", detail.cprice/a.cprice*100),        // Actual
-				p.Sprintf("%.2f", detail.cprice),                         // Current
-				p.Sprintf("%.1f%%", detail.cprice/detail.aprice*100-100), // P/L
-			}
-			table.Append(row)
-		}
+		table.Append(row)
 	}
 
 	table.Render()

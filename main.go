@@ -38,11 +38,11 @@ func main() {
 		panic(err)
 	}
 
-	a := NewAssetAllocation(s, f)
+	a := NewAssetAllocation(s, f, getAllocationTarget())
 
 	//renderStocks(s)
 
 	fmt.Println("")
 
-	renderAllocation(a, getAllocationTarget())
+	renderAllocation(a)
 }

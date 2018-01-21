@@ -214,10 +214,15 @@ func (lhs *fundUnited) merge(rhs *Fund) {
 
 // AssetClassDetail 資産カテゴリごとの明細
 type AssetClassDetail struct {
-	class  AssetClass
-	aprice float64
-	cprice float64
-	funds  map[FundCode]*fundUnited
+	class        AssetClass
+	aprice       float64 // acquisitionPrice
+	cprice       float64 // currentPrice
+	targetRatio  float64 // 目標割合
+	currentRatio float64 // 実際の割合
+	targetPrice  float64 // 目標金額
+	diffPrice    float64 // 差分金額
+	pl           float64 // P/L
+	funds        map[FundCode]*fundUnited
 }
 
 func newAssetClassDetail(fu *fundUnited) *AssetClassDetail {
@@ -234,6 +239,7 @@ func newAssetClassDetail(fu *fundUnited) *AssetClassDetail {
 func (d *AssetClassDetail) merge(fu *fundUnited) {
 	d.aprice += fu.AcquisitionPrice
 	d.cprice += fu.CurrentPrice
+	d.pl = d.cprice/d.aprice - 1
 	d.funds[fu.Code] = fu
 }
 
@@ -284,29 +290,57 @@ func fundsFromETF(stocks []*Stock) []*Fund {
 	return fs
 }
 
-// NewAssetAllocation アセットアロケーション計算
-func NewAssetAllocation(stocks []*Stock, funds []*Fund) AssetAllocation {
-	mergedFunds := map[FundCode]*fundUnited{}
+func mergeStocksAndFunds(stocks []*Stock, funds []*Fund) map[FundCode]*fundUnited {
+	fundUniteds := map[FundCode]*fundUnited{}
 
 	funds = append([]*Fund{}, funds...)
 	funds = append(funds, fundsFromETF(stocks)...)
 
 	for _, f := range funds {
-		fu, e := mergedFunds[f.Code]
+		fu, e := fundUniteds[f.Code]
 		if e {
 			fu.merge(f)
 		} else {
-			mergedFunds[f.Code] = newFundUnited(f)
+			fundUniteds[f.Code] = newFundUnited(f)
 		}
 	}
+
+	return fundUniteds
+}
+
+func (a *AssetAllocation) calcRatio() {
+	// 以下を計算する
+	//currentRatio float64 // 実際の割合
+	//targetPrice  float64 // 目標金額
+	//diffPrice    float64 // 差分金額
+
+	for _, detail := range a.details {
+		detail.currentRatio = detail.cprice / a.cprice
+		detail.targetPrice = detail.targetPrice * a.cprice
+		detail.diffPrice = detail.cprice - detail.targetPrice
+	}
+}
+
+// NewAssetAllocation アセットアロケーション計算
+func NewAssetAllocation(stocks []*Stock, funds []*Fund, target AllocationTarget) AssetAllocation {
+	fundUniteds := mergeStocksAndFunds(stocks, funds)
 
 	a := AssetAllocation{
 		details: map[AssetClass]*AssetClassDetail{},
 	}
 
-	for _, fu := range mergedFunds {
+	for class, t := range target {
+		a.details[class] = &AssetClassDetail{
+			class:       class,
+			targetRatio: t,
+		}
+	}
+
+	for _, fu := range fundUniteds {
 		a.merge(fu)
 	}
+
+	a.calcRatio()
 
 	return a
 }
