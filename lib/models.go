@@ -1,4 +1,4 @@
-package main
+package yajirobe
 
 import (
 	"fmt"
@@ -333,6 +333,7 @@ func NewAssetAllocation(stocks []*Stock, funds []*Fund, target AllocationTarget)
 		a.details[class] = &AssetClassDetail{
 			class:       class,
 			targetRatio: t,
+			funds:       map[FundCode]*fundUnited{},
 		}
 	}
 

@@ -1,4 +1,4 @@
-package main
+package yajirobe
 
 import (
 	"fmt"
@@ -25,7 +25,7 @@ func renderStocks(sx []Stock) {
 	table.Render()
 }
 
-func renderAllocation(a AssetAllocation) {
+func RenderAllocation(a AssetAllocation) {
 	table := tablewriter.NewWriter(os.Stdout)
 	p := message.NewPrinter(message.MatchLanguage("en"))
 
@@ -53,13 +53,18 @@ func renderAllocation(a AssetAllocation) {
 		p.Sprintf("%.1f%%", a.cprice/a.aprice*100-100), // P/L
 	})
 
-	for class, detail := range a.details {
+	for _, class := range AssetClasses {
+		detail, e := a.details[class]
+		if !e {
+			continue
+		}
+
 		row := []string{
 			class.String(),                                 // Class
 			fmt.Sprintf("%.1f%%", detail.targetRatio*100),  // Target
 			fmt.Sprintf("%.1f%%", detail.currentRatio*100), // Actual
 			p.Sprintf("%.2f", detail.cprice),               // Current
-			p.Sprintf("%.1f%%", detail.pl-100),             // P/L
+			p.Sprintf("%.1f%%", detail.pl*100),             // P/L
 		}
 		table.Append(row)
 	}

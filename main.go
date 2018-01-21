@@ -6,6 +6,8 @@ import (
 
 	"go.uber.org/zap"
 
+	yajirobe "github.com/masaedw/yajirobe/lib"
+
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -18,17 +20,17 @@ var (
 	logger *zap.Logger
 )
 
-func getAllocationTarget() AllocationTarget {
-	return AllocationTarget{
-		DomesticStocks:      0.01 * 23,
-		InternationalStocks: 0.01 * 30,
-		EmergingStocks:      0.01 * 13,
-		DomesticBonds:       0.01 * 3,
-		InternationalBonds:  0.01 * 13,
-		EmergingBonds:       0.01 * 3,
-		DomesticREIT:        0.01 * 5,
-		InternationalREIT:   0.01 * 5,
-		Comodity:            0.01 * 5,
+func getAllocationTarget() yajirobe.AllocationTarget {
+	return yajirobe.AllocationTarget{
+		yajirobe.DomesticStocks:      0.01 * 23,
+		yajirobe.InternationalStocks: 0.01 * 30,
+		yajirobe.EmergingStocks:      0.01 * 13,
+		yajirobe.DomesticBonds:       0.01 * 3,
+		yajirobe.InternationalBonds:  0.01 * 13,
+		yajirobe.EmergingBonds:       0.01 * 3,
+		yajirobe.DomesticREIT:        0.01 * 5,
+		yajirobe.InternationalREIT:   0.01 * 5,
+		yajirobe.Comodity:            0.01 * 5,
 	}
 }
 
@@ -36,26 +38,26 @@ func main() {
 	userID := os.Getenv("SBI_USER_ID")
 	userPassword := os.Getenv("SBI_USER_PASSWORD")
 
-	bow, err := sbiLogin(userID, userPassword)
+	bow, err := yajirobe.SbiLogin(userID, userPassword)
 	if err != nil {
 		panic(err)
 	}
 
-	cache, err := NewFileFundInfoCache()
+	cache, err := yajirobe.NewFileFundInfoCache()
 	if err != nil {
 		panic(err)
 	}
 
-	s, f, err := sbiScan(bow, cache)
+	s, f, err := yajirobe.SbiScan(bow, cache)
 	if err != nil {
 		panic(err)
 	}
 
-	a := NewAssetAllocation(s, f, getAllocationTarget())
+	a := yajirobe.NewAssetAllocation(s, f, getAllocationTarget())
 
 	//renderStocks(s)
 
 	fmt.Println("")
 
-	renderAllocation(a)
+	yajirobe.RenderAllocation(a)
 }

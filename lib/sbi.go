@@ -1,4 +1,4 @@
-package main
+package yajirobe
 
 import (
 	"errors"
@@ -13,7 +13,7 @@ import (
 	surf "gopkg.in/headzoo/surf.v1"
 )
 
-func sbiLogin(userID, userPassword string) (*browser.Browser, error) {
+func SbiLogin(userID, userPassword string) (*browser.Browser, error) {
 	bow := surf.NewBrowser()
 	bow.SetUserAgent(agent.Chrome())
 
@@ -170,7 +170,7 @@ func sbiScanFund(bow *browser.Browser, row *goquery.Selection, cache FundInfoCac
 	}, nil
 }
 
-func sbiScan(bow *browser.Browser, cache FundInfoCache) ([]*Stock, []*Fund, error) {
+func SbiScan(bow *browser.Browser, cache FundInfoCache) ([]*Stock, []*Fund, error) {
 	if e := sbiAccountPage(bow); e != nil {
 		return nil, nil, e
 	}
