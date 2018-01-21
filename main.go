@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"go.uber.org/zap"
+
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -12,6 +14,8 @@ var (
 	debug = app.Flag("debug", "Enable debug mode").Default("false").Bool()
 
 	show = app.Command("show", "Show your asset allocation").Default()
+
+	logger *zap.Logger
 )
 
 func getAllocationTarget() AllocationTarget {

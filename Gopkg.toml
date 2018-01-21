@@ -27,3 +27,7 @@
 [[constraint]]
   name = "gopkg.in/alecthomas/kingpin.v2"
   version = "2.2.6"
+
+[[constraint]]
+  name = "go.uber.org/zap"
+  version = "1.7.1"
