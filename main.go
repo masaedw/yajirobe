@@ -34,28 +34,42 @@ func getAllocationTarget() yajirobe.AllocationTarget {
 	}
 }
 
+func errorExit(err error) {
+	fmt.Fprintf(os.Stderr, "%+v", err)
+	os.Exit(1)
+}
+
 func main() {
 	userID := os.Getenv("SBI_USER_ID")
 	userPassword := os.Getenv("SBI_USER_PASSWORD")
 
-	bow, err := yajirobe.SbiLogin(userID, userPassword)
+	logger, err := zap.NewDevelopment()
 	if err != nil {
-		panic(err)
+		errorExit(err)
 	}
 
 	cache, err := yajirobe.NewFileFundInfoCache()
 	if err != nil {
-		panic(err)
+		errorExit(err)
 	}
 
-	s, f, err := yajirobe.SbiScan(bow, cache)
+	sbi, err := yajirobe.NewSbiScanner(yajirobe.SbiOption{
+		UserID:       userID,
+		UserPassword: userPassword,
+		Logger:       logger,
+		Cache:        cache,
+	})
+
 	if err != nil {
-		panic(err)
+		errorExit(err)
+	}
+
+	s, f, err := sbi.Scan()
+	if err != nil {
+		errorExit(err)
 	}
 
 	a := yajirobe.NewAssetAllocation(s, f, getAllocationTarget())
-
-	//renderStocks(s)
 
 	fmt.Println("")
 

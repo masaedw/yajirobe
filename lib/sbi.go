@@ -1,7 +1,6 @@
 package yajirobe
 
 import (
-	"errors"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -10,18 +9,58 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/headzoo/surf/agent"
 	"github.com/headzoo/surf/browser"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	surf "gopkg.in/headzoo/surf.v1"
 )
 
-func SbiLogin(userID, userPassword string) (*browser.Browser, error) {
-	bow := surf.NewBrowser()
+type sbiClient struct {
+	browser *browser.Browser
+	cache   FundInfoCache
+	Logger  *zap.Logger
+}
+
+// SbiOption NewSbiScannerの引数
+type SbiOption struct {
+	UserID       string
+	UserPassword string
+	Cache        FundInfoCache
+	Logger       *zap.Logger
+}
+
+// NewSbiScanner SBI証券用Scannerを作る
+func NewSbiScanner(option SbiOption) (Scanner, error) {
+	if option.Logger == nil {
+		option.Logger = zap.NewNop()
+	}
+
+	client := &sbiClient{
+		browser: surf.NewBrowser(),
+		cache:   option.Cache,
+		Logger:  option.Logger,
+	}
+
+	if err := client.login(option.UserID, option.UserPassword); err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
+func (c *sbiClient) login(userID, password string) error {
+	bow := c.browser
 	bow.SetUserAgent(agent.Chrome())
 
-	bow.Open("https://www.sbisec.co.jp/ETGate")
+	if err := bow.Open("https://www.sbisec.co.jp/ETGate"); err != nil {
+		return errors.Wrap(err, "SBI: Can't open sbi top page")
+	}
 
-	loginForm, _ := bow.Form("[name='form_login']")
+	loginForm, err := bow.Form("[name='form_login']")
+	if err != nil {
+		return errors.Wrap(err, "SBI: Can't detect login form")
+	}
 
-	setForms(loginForm, map[string]string{
+	err = setForms(loginForm, map[string]string{
 		"JS_FLG":          "0",
 		"BW_FLG":          "0",
 		"_ControlID":      "WPLETlgR001Control",
@@ -32,56 +71,66 @@ func SbiLogin(userID, userPassword string) (*browser.Browser, error) {
 		"allPrmFlg":       "on",
 		"_ReturnPageInfo": "WPLEThmR001Control/DefaultPID/DefaultAID/DSWPLEThmR001Control",
 		"user_id":         userID,
-		"user_password":   userPassword,
+		"user_password":   password,
 	})
+	if err != nil {
+		return errors.Wrap(err, "SBI: Can't set login form")
+	}
 
-	loginForm.Submit()
+	c.Logger.Debug("Submit sbi login")
+	if err := loginForm.Submit(); err != nil {
+		return errors.Wrap(err, "SBI: Can't submit login form")
+	}
 
 	text := toUtf8(bow.Find("font").Text())
 	if strings.Contains(text, "WBLE") {
 		// ログイン失敗画面
-		return nil, errors.New(text)
+		return errors.Errorf("SBI: login failed: %s", text)
 	}
 
 	nextForm := bow.Find("form").First()
 	if nextForm == nil {
-		return nil, errors.New("formSwitch not found")
+		return errors.Errorf("SBI: formSwitch not found")
 	}
 
 	// 2回目のPOST
-	bow.PostForm(nextForm.AttrOr("action", "url not found"), exportValues(nextForm))
-
-	if !strings.Contains(toUtf8(bow.Find(".tp-box-05").Text()), "最終ログイン:") {
-		// ログイン成功時のメッセージが出てなければログイン失敗してる
-		return nil, errors.New("the SBI User ID or Password failed")
+	if err := bow.PostForm(nextForm.AttrOr("action", "url not found"), exportValues(nextForm)); err != nil {
+		return errors.Wrap(err, "SBI: formSwitch post failed")
 	}
 
-	return bow, nil
+	if !strings.Contains(toUtf8(bow.Body()), "最終ログイン:") {
+		// ログイン成功時のメッセージが出てなければログイン失敗してる
+		c.Logger.Debug("Can't detect login message")
+		return errors.New("SBI: the SBI User ID or Password failed")
+	}
+
+	return nil
 }
 
-func sbiAccountPage(bow *browser.Browser) error {
+func (c *sbiClient) accountPage() error {
+	bow := c.browser
 	s := filterAttrContains(bow.Dom().Find("img"), "alt", toSjis("口座管理"))
 	if s == nil || s.Length() == 0 {
-		return errors.New("can't find 口座管理")
+		return errors.New("SBI: Can't find 口座管理")
 	}
 	url := s.Parent().AttrOr("href", "can't find url")
 	url, _ = bow.ResolveStringUrl(url)
 	e := bow.Open(url)
 	if e != nil {
-		return e
+		return errors.Wrap(e, "SBI: Can't open 口座管理")
 	}
 
 	s = filterAttrContains(bow.Dom().Find("area"), "alt", toSjis("保有証券"))
 	url, _ = bow.ResolveStringUrl(s.AttrOr("href", "can't find url"))
 	e = bow.Open(url)
 	if e != nil {
-		return e
+		return errors.Wrap(e, "SBI: Can't open 保有証券")
 	}
 
 	return nil
 }
 
-func sbiScanStock(row *goquery.Selection) *Stock {
+func (c *sbiClient) scanStock(row *goquery.Selection) *Stock {
 	cells := iterate(row.Find("td"))
 
 	nameCode := toUtf8(cells[0].Text())
@@ -108,12 +157,15 @@ func sbiScanStock(row *goquery.Selection) *Stock {
 	}
 }
 
-func sbiGetFundInfo(bow *browser.Browser, code FundCode) *FundInfo {
+func (c *sbiClient) getFundInfo(code FundCode) (*FundInfo, error) {
+	bow := c.browser
 	url, _ := url.Parse("https://site0.sbisec.co.jp/marble/fund/detail/achievement.do")
 	query := url.Query()
 	query.Set("Param6", string(code))
 	url.RawQuery = query.Encode()
-	bow.Open(url.String())
+	if err := bow.Open(url.String()); err != nil {
+		return nil, errors.Wrapf(err, "SBI: Can't open fund's page of %v", code)
+	}
 	categoryHeader := filterTextContains(bow.Find("tr th div p"), toSjis("商品分類"))
 	category := categoryHeader.Parent().Parent().Parent().First().Next()
 	nameHeader := strings.TrimSpace(toUtf8(bow.Find("h3").Text()))
@@ -128,10 +180,10 @@ func sbiGetFundInfo(bow *browser.Browser, code FundCode) *FundInfo {
 		Name:  name,
 		Class: assetClass,
 		Code:  code,
-	}
+	}, nil
 }
 
-func sbiScanFund(bow *browser.Browser, row *goquery.Selection, cache FundInfoCache) (*Fund, error) {
+func (c *sbiClient) scanFund(row *goquery.Selection) (*Fund, error) {
 	cells := iterate(row.Find("td"))
 
 	href := cells[0].Find("a").AttrOr("href", "Fund name not found")
@@ -143,20 +195,16 @@ func sbiScanFund(bow *browser.Browser, row *goquery.Selection, cache FundInfoCac
 	acquisitionUnitPrice := parseSeparatedInt(units[0])
 	currentUnitPrice := parseSeparatedInt(units[1])
 
-	fi, err := cache.Get(code)
-	if err != nil && !IsCacheNotExists(err) {
-		return nil, err
+	fi, err := c.cache.GetOrFind(code, FundInfoFinder(func(code FundCode) (*FundInfo, error) {
+		return c.getFundInfo(code)
+	}))
+
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
 
 	name := fi.Name
 	class := fi.Class
-
-	if err != nil { // Cacheにヒットしなかった
-		fi = sbiGetFundInfo(bow, code)
-		if err = cache.Set(fi); err != nil {
-			return nil, err
-		}
-	}
 
 	return &Fund{
 		Name:                 name,
@@ -170,10 +218,12 @@ func sbiScanFund(bow *browser.Browser, row *goquery.Selection, cache FundInfoCac
 	}, nil
 }
 
-func SbiScan(bow *browser.Browser, cache FundInfoCache) ([]*Stock, []*Fund, error) {
-	if e := sbiAccountPage(bow); e != nil {
+func (c *sbiClient) Scan() ([]*Stock, []*Fund, error) {
+	if e := c.accountPage(); e != nil {
 		return nil, nil, e
 	}
+
+	bow := c.browser
 
 	stockFont := filterTextContains(bow.Find("font"), toSjis("銘柄"))
 	stockTable := stockFont.ParentsFiltered("table").First()
@@ -181,7 +231,7 @@ func SbiScan(bow *browser.Browser, cache FundInfoCache) ([]*Stock, []*Fund, erro
 	stocks := []*Stock{}
 
 	for _, tr := range iterate(stockTable.Find("tr"))[1:] {
-		stocks = append(stocks, sbiScanStock(tr))
+		stocks = append(stocks, c.scanStock(tr))
 	}
 
 	fundFont := filterTextContains(bow.Find("font"), toSjis("ファンド名"))
@@ -194,7 +244,7 @@ func SbiScan(bow *browser.Browser, cache FundInfoCache) ([]*Stock, []*Fund, erro
 			if i%2 == 0 {
 				continue
 			}
-			f, e := sbiScanFund(bow, tr, cache)
+			f, e := c.scanFund(tr)
 			if e != nil {
 				return nil, nil, e
 			}
