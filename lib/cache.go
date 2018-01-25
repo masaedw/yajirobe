@@ -2,12 +2,13 @@ package yajirobe
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
+
+	"github.com/pkg/errors"
 )
 
 // FundInfo ファンド情報
@@ -17,10 +18,32 @@ type FundInfo struct {
 	Name  string     `json:"name"`
 }
 
+type FundInfoFinder func(code FundCode) (*FundInfo, error)
+
 // FundInfoCache ファンド情報のキャッシュ
 type FundInfoCache interface {
 	Get(code FundCode) (*FundInfo, error)
+	GetOrFind(code FundCode, finder FundInfoFinder) (*FundInfo, error)
 	Set(info *FundInfo) error
+}
+
+// DefaultGetOrFind GetとSetをつかったGetOrFindのデフォルト実装
+func DefaultGetOrFind(fc FundInfoCache, code FundCode, finder FundInfoFinder) (*FundInfo, error) {
+	fi, err := fc.Get(code)
+	switch {
+	case err != nil && !IsCacheNotExists(err):
+		return nil, errors.WithStack(err)
+
+	case err != nil && IsCacheNotExists(err):
+		fi, err := finder(code)
+		if fi != nil {
+			err = fc.Set(fi)
+		}
+		return fi, errors.WithStack(err)
+
+	default:
+		return fi, nil
+	}
 }
 
 // CacheNotExistsError キャッシュされた情報がない
@@ -134,4 +157,8 @@ func (fc *FileFundInfoCache) Set(info *FundInfo) error {
 	filePath := fc.fundFilePath(info.Code)
 
 	return ioutil.WriteFile(filePath, data, 0644)
+}
+
+func (fc *FileFundInfoCache) GetOrFind(code FundCode, finder FundInfoFinder) (*FundInfo, error) {
+	return DefaultGetOrFind(fc, code, finder)
 }
