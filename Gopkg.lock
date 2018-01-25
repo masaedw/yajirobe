@@ -53,6 +53,12 @@
   revision = "65fec0d89a572b4367094e2058d3ebe667de3b60"
 
 [[projects]]
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
+
+[[projects]]
   name = "go.uber.org/atomic"
   packages = ["."]
   revision = "8474b86a5a6f79c443ce4b2992817ff32cf208b8"
@@ -125,6 +131,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "5c8d187ef896a74ea7e59d092684202cdefa02732f369efef1504adcace11c09"
+  inputs-digest = "44ab5fd149935bc7b573626574869279966b887a8e68a3a24370d1dffe0b11f8"
   solver-name = "gps-cdcl"
   solver-version = 1
