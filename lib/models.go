@@ -316,7 +316,7 @@ func (a *AssetAllocation) calcRatio() {
 
 	for _, detail := range a.details {
 		detail.currentRatio = detail.cprice / a.cprice
-		detail.targetPrice = detail.targetPrice * a.cprice
+		detail.targetPrice = detail.targetRatio * a.cprice
 		detail.diffPrice = detail.cprice - detail.targetPrice
 	}
 }
