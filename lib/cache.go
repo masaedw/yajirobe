@@ -18,6 +18,7 @@ type FundInfo struct {
 	Name  string     `json:"name"`
 }
 
+// FundInfoFinder ファンドコードからファンド情報を取得する関数
 type FundInfoFinder func(code FundCode) (*FundInfo, error)
 
 // FundInfoCache ファンド情報のキャッシュ
@@ -159,6 +160,7 @@ func (fc *FileFundInfoCache) Set(info *FundInfo) error {
 	return ioutil.WriteFile(filePath, data, 0644)
 }
 
+// GetOrFind キャッシュにあれば取得、なければFundInfoFinderを使って探しに行く
 func (fc *FileFundInfoCache) GetOrFind(code FundCode, finder FundInfoFinder) (*FundInfo, error) {
 	return DefaultGetOrFind(fc, code, finder)
 }

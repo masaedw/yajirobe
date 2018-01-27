@@ -11,7 +11,7 @@ import (
 	"github.com/headzoo/surf/browser"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	surf "gopkg.in/headzoo/surf.v1"
+	"gopkg.in/headzoo/surf.v1"
 )
 
 type sbiClient struct {

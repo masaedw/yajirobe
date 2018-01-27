@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/masaedw/yajirobe/lib"
 	"go.uber.org/zap"
-
-	yajirobe "github.com/masaedw/yajirobe/lib"
-
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (

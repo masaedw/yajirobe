@@ -85,7 +85,7 @@ func TestIsCacheNotExists(t *testing.T) {
 		t.Fatal("expected true but got false")
 	}
 
-	if (IsCacheNotExists(errors.New("some error"))) {
+	if IsCacheNotExists(errors.New("some error")) {
 		t.Fatal("expected false but got true")
 	}
 }
