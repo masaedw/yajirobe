@@ -36,10 +36,12 @@ func (a *AssetAllocation) Render() {
 		"Target",
 		"Actual",
 		"Current",
+		"Diff",
 		"P/L",
 	})
 	table.SetColumnAlignment([]int{
 		tablewriter.ALIGN_DEFAULT,
+		tablewriter.ALIGN_RIGHT,
 		tablewriter.ALIGN_RIGHT,
 		tablewriter.ALIGN_RIGHT,
 		tablewriter.ALIGN_RIGHT,
@@ -50,7 +52,8 @@ func (a *AssetAllocation) Render() {
 		"全体", // Class
 		"",   // Target
 		"",   // Actual
-		p.Sprintf("%.2f", a.cprice),                    // Current
+		p.Sprintf("%.2f", a.cprice), // Current
+		"", // Diff
 		p.Sprintf("%.1f%%", a.cprice/a.aprice*100-100), // P/L
 	})
 
@@ -65,6 +68,7 @@ func (a *AssetAllocation) Render() {
 			fmt.Sprintf("%.1f%%", detail.targetRatio*100),  // Target
 			fmt.Sprintf("%.1f%%", detail.currentRatio*100), // Actual
 			p.Sprintf("%.2f", detail.cprice),               // Current
+			p.Sprintf("%.0f", detail.diffPrice),            // Diff
 			p.Sprintf("%.1f%%", detail.pl*100),             // P/L
 		}
 		table.Append(row)
