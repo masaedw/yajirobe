@@ -71,5 +71,5 @@ func main() {
 
 	fmt.Println("")
 
-	yajirobe.RenderAllocation(a)
+	a.Render()
 }

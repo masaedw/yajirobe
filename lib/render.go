@@ -25,7 +25,8 @@ func renderStocks(sx []Stock) {
 	table.Render()
 }
 
-func RenderAllocation(a AssetAllocation) {
+// Render 画面に書き出す
+func (a *AssetAllocation) Render() {
 	table := tablewriter.NewWriter(os.Stdout)
 	p := message.NewPrinter(message.MatchLanguage("en"))
 
