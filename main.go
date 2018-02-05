@@ -52,10 +52,10 @@ func main() {
 	}
 
 	sbi, err := yajirobe.NewSbiScanner(yajirobe.SbiOption{
-		UserID:       userID,
-		UserPassword: userPassword,
-		Logger:       logger,
-		Cache:        cache,
+		UserID:   userID,
+		Password: userPassword,
+		Logger:   logger,
+		Cache:    cache,
 	})
 
 	if err != nil {

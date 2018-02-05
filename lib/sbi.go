@@ -22,10 +22,10 @@ type sbiClient struct {
 
 // SbiOption NewSbiScannerの引数
 type SbiOption struct {
-	UserID       string
-	UserPassword string
-	Cache        FundInfoCache
-	Logger       *zap.Logger
+	UserID   string
+	Password string
+	Cache    FundInfoCache
+	Logger   *zap.Logger
 }
 
 // NewSbiScanner SBI証券用Scannerを作る
@@ -40,7 +40,7 @@ func NewSbiScanner(option SbiOption) (Scanner, error) {
 		Logger:  option.Logger,
 	}
 
-	if err := client.login(option.UserID, option.UserPassword); err != nil {
+	if err := client.login(option.UserID, option.Password); err != nil {
 		return nil, err
 	}
 
