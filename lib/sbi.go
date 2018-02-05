@@ -41,8 +41,9 @@ func NewSbiScanner(option SbiOption) (Scanner, error) {
 	}
 
 	if err := client.login(option.UserID, option.Password); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "can't login")
 	}
+	client.Logger.Sugar().Debugf("sbi: login")
 
 	return client, nil
 }
@@ -54,11 +55,13 @@ func (c *sbiClient) login(userID, password string) error {
 	if err := bow.Open("https://www.sbisec.co.jp/ETGate"); err != nil {
 		return errors.Wrap(err, "SBI: Can't open sbi top page")
 	}
+	c.Logger.Debug("sbi: open top-page")
 
 	loginForm, err := bow.Form("[name='form_login']")
 	if err != nil {
 		return errors.Wrap(err, "SBI: Can't detect login form")
 	}
+	c.Logger.Debug("sbi: detect login page")
 
 	err = setForms(loginForm, map[string]string{
 		"JS_FLG":          "0",
@@ -77,10 +80,10 @@ func (c *sbiClient) login(userID, password string) error {
 		return errors.Wrap(err, "SBI: Can't set login form")
 	}
 
-	c.Logger.Debug("Submit sbi login")
 	if err := loginForm.Submit(); err != nil {
 		return errors.Wrap(err, "SBI: Can't submit login form")
 	}
+	c.Logger.Debug("sbi: submit login")
 
 	text := toUtf8(bow.Find("font").Text())
 	if strings.Contains(text, "WBLE") {
@@ -92,17 +95,20 @@ func (c *sbiClient) login(userID, password string) error {
 	if nextForm == nil {
 		return errors.Errorf("SBI: formSwitch not found")
 	}
+	c.Logger.Debug("sbi: detect formswitch")
 
 	// 2回目のPOST
 	if err := bow.PostForm(nextForm.AttrOr("action", "url not found"), exportValues(nextForm)); err != nil {
 		return errors.Wrap(err, "SBI: formSwitch post failed")
 	}
+	c.Logger.Debug("sbi: post formswitch")
 
 	if !strings.Contains(toUtf8(bow.Body()), "最終ログイン:") {
 		// ログイン成功時のメッセージが出てなければログイン失敗してる
 		c.Logger.Debug("Can't detect login message")
 		return errors.New("SBI: the SBI User ID or Password failed")
 	}
+	c.Logger.Debug("sbi: succeeded login")
 
 	return nil
 }
