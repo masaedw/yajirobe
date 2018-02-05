@@ -9,6 +9,7 @@ import (
 	"runtime"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 // FundInfo ファンド情報
@@ -68,7 +69,8 @@ func (e *CacheNotExistsError) Error() string {
 
 // FileFundInfoCache ローカルファイルにキャッシュするFundInfoCache
 type FileFundInfoCache struct {
-	path string
+	path   string
+	logger *zap.Logger
 }
 
 func cachePath() (string, error) {
@@ -84,14 +86,15 @@ func cachePath() (string, error) {
 }
 
 // NewFileFundInfoCache NewFileFundInfoCacheを作る
-func NewFileFundInfoCache() (FundInfoCache, error) {
+func NewFileFundInfoCache(logger *zap.Logger) (FundInfoCache, error) {
 	dirPath, err := cachePath()
 	if err != nil {
 		return nil, err
 	}
 
 	fc := &FileFundInfoCache{
-		path: dirPath,
+		path:   dirPath,
+		logger: logger,
 	}
 
 	return fc, nil
@@ -119,18 +122,20 @@ func (fc *FileFundInfoCache) Get(code FundCode) (*FundInfo, error) {
 	fullPath := fc.fundFilePath(code)
 
 	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+		fc.logger.Sugar().Debugf("cache miss: %v", code)
 		return nil, &CacheNotExistsError{Code: code}
 	}
 
+	fc.logger.Sugar().Debugf("cache hit: %v", code)
 	data, err := ioutil.ReadFile(fullPath)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "can't read cache file")
 	}
 
 	info := &FundInfo{}
 
 	if err = json.Unmarshal(data, info); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "can't unmarshal cache")
 	}
 
 	return info, nil
@@ -148,11 +153,11 @@ func (fc *FileFundInfoCache) Set(info *FundInfo) error {
 
 	data, err := json.Marshal(info)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "can't marshal fundinfo")
 	}
 
 	if err = fc.prepareDir(); err != nil {
-		return nil
+		return errors.Wrap(err, "can't prepare directory")
 	}
 
 	filePath := fc.fundFilePath(info.Code)

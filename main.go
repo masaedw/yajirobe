@@ -46,7 +46,7 @@ func main() {
 		errorExit(err)
 	}
 
-	cache, err := yajirobe.NewFileFundInfoCache()
+	cache, err := yajirobe.NewFileFundInfoCache(logger)
 	if err != nil {
 		errorExit(err)
 	}
