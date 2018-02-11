@@ -6,6 +6,8 @@ import (
 
 	"github.com/masaedw/yajirobe/lib"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"golang.org/x/text/message"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -14,6 +16,9 @@ var (
 	debug = app.Flag("debug", "Enable debug mode").Default("false").Bool()
 
 	show = app.Command("show", "Show your asset allocation").Default()
+
+	buy       = app.Command("buy", "Calculate re-balancing buy")
+	buyAmount = buy.Arg("amount", "amount").Required().Int64()
 
 	logger *zap.Logger
 )
@@ -37,14 +42,28 @@ func errorExit(err error) {
 	os.Exit(1)
 }
 
-func main() {
-	userID := os.Getenv("SBI_USER_ID")
-	userPassword := os.Getenv("SBI_USER_PASSWORD")
+func createLogger() {
+	var err error
 
-	logger, err := zap.NewDevelopment()
+	if *debug {
+		config := zap.NewDevelopmentConfig()
+		config.EncoderConfig.EncodeLevel = zapcore.LowercaseColorLevelEncoder
+		logger, err = config.Build()
+	} else {
+		logger, err = zap.NewProduction()
+	}
+
 	if err != nil {
 		errorExit(err)
 	}
+}
+
+func main() {
+	userID := os.Getenv("SBI_USER_ID")
+	password := os.Getenv("SBI_USER_PASSWORD")
+
+	command := kingpin.MustParse(app.Parse(os.Args[1:]))
+	createLogger()
 
 	cache, err := yajirobe.NewFileFundInfoCache(logger)
 	if err != nil {
@@ -53,7 +72,7 @@ func main() {
 
 	sbi, err := yajirobe.NewSbiScanner(yajirobe.SbiOption{
 		UserID:   userID,
-		Password: userPassword,
+		Password: password,
 		Logger:   logger,
 		Cache:    cache,
 	})
@@ -69,7 +88,20 @@ func main() {
 
 	a := yajirobe.NewAssetAllocation(s, f, getAllocationTarget())
 
-	fmt.Println("")
+	switch command {
+	case show.FullCommand():
+		a.Render()
 
-	a.Render()
+	case buy.FullCommand():
+		result := a.RebalancingBuy(float64(*buyAmount))
+		a.Render()
+
+		p := message.NewPrinter(message.MatchLanguage("en"))
+
+		for _, c := range yajirobe.AssetClasses {
+			if v, e := result[c]; e {
+				p.Printf("%v\t%10.0f\n", c, v)
+			}
+		}
+	}
 }
