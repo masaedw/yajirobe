@@ -253,6 +253,17 @@ type AssetAllocation struct {
 	details map[AssetClass]*AssetClassDetail
 }
 
+// keys 使用するアセットクラスだけを取り出す
+func (a *AssetAllocation) keys() []AssetClass {
+	k := make([]AssetClass, 0, len(a.details))
+
+	for c := range a.details {
+		k = append(k, c)
+	}
+
+	return k
+}
+
 func (a *AssetAllocation) merge(fu *fundUnited) {
 	a.aprice += fu.AcquisitionPrice
 	a.cprice += fu.CurrentPrice
