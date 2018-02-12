@@ -174,7 +174,7 @@ func (c *sbiClient) getFundInfo(code FundCode) (*FundInfo, error) {
 	}
 	categoryHeader := filterTextContains(bow.Find("tr th div p"), toSjis("商品分類"))
 	category := categoryHeader.Parent().Parent().Parent().First().Next()
-	nameHeader := strings.TrimSpace(toUtf8(bow.Find("h3").Text()))
+	nameHeader := strings.TrimSpace(toUtf8(bow.Find("h3").First().Text()))
 	names := strings.Split(nameHeader, "－")
 	name := names[0]
 	if len(names) > 1 {
