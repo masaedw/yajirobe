@@ -1,5 +1,9 @@
 package yajirobe
 
+import (
+	"math"
+)
+
 // RebalancingBuy リバランス購入 購入金額を調整し売却せずに積み立てながらリバランスする場合の計算
 func (a *AssetAllocation) RebalancingBuy(cost float64) map[AssetClass]float64 {
 	// 追加資金を入れた後の割合から超えているものは無視して、
@@ -62,4 +66,12 @@ func (a *AssetAllocation) RebalancingBuy(cost float64) map[AssetClass]float64 {
 	}
 
 	return adds
+}
+
+func round(n float64) float64 {
+	// Round half to even, aka banker's rounding
+	// https://en.wikipedia.org/wiki/Rounding#Round_half_to_even
+	// https://en.wikipedia.org/wiki/Nearest_integer_function
+
+	return math.Ceil((n-0.5)/2) + math.Floor((n+0.5)/2)
 }
