@@ -224,11 +224,7 @@ func (c *sbiClient) scanFund(row *goquery.Selection) (*Fund, error) {
 	}, nil
 }
 
-func (c *sbiClient) Scan() ([]*Stock, []*Fund, error) {
-	if e := c.accountPage(); e != nil {
-		return nil, nil, e
-	}
-
+func (c *sbiClient) stocksFromAccountPage() []*Stock {
 	bow := c.browser
 
 	stockFont := filterTextContains(bow.Find("font"), toSjis("銘柄"))
@@ -239,6 +235,12 @@ func (c *sbiClient) Scan() ([]*Stock, []*Fund, error) {
 	for _, tr := range iterate(stockTable.Find("tr"))[1:] {
 		stocks = append(stocks, c.scanStock(tr))
 	}
+
+	return stocks
+}
+
+func (c *sbiClient) fundsFromAccountPage() ([]*Fund, error) {
+	bow := c.browser
 
 	fundFont := filterTextContains(bow.Find("font"), toSjis("ファンド名"))
 	fundTables := iterate(fundFont.Parent().Parent().Parent().Parent())
@@ -252,11 +254,147 @@ func (c *sbiClient) Scan() ([]*Stock, []*Fund, error) {
 			}
 			f, e := c.scanFund(tr)
 			if e != nil {
-				return nil, nil, e
+				return nil, errors.Wrap(e, "can't read fund table")
 			}
 			funds = append(funds, f)
 		}
 	}
+
+	return funds, nil
+}
+
+func (c *sbiClient) periodicOrderPage() error {
+	sugar := c.Logger.Sugar()
+
+	sugar.Debugf("opening periodic order page")
+
+	bow := c.browser
+
+	// いま何のページが開いているかわからないので一旦topページに戻る
+	if e := bow.Open("https://site1.sbisec.co.jp/ETGate/"); e != nil {
+		return errors.New("can't open sbi top page")
+	}
+
+	// investment trust url: 取引→投資信託ページ
+	//iturl := bow.Dom().Find("#link02_trade_menu li:nth-child(2) a").AttrOr("href", "invalid url")
+	itlinks := iterate(filterTextContains(bow.Dom().Find("ul li a"), toSjis("投資信託")))
+	iturl := ""
+	for _, l := range itlinks {
+		if l.Text() == toSjis("投資信託") && strings.Contains(l.AttrOr("href", "invalid url"), "/ETGate") {
+			iturl = l.AttrOr("href", "dummy")
+			break
+		}
+	}
+	iturl, _ = bow.ResolveStringUrl(iturl)
+	if e := bow.Open(iturl); e != nil {
+		return errors.Wrapf(e, "Can't open investment trust trade page: %s", iturl)
+	}
+
+	// order inqury url: 注文照会ページ
+	oiurl := filterTextContains(bow.Dom().Find("a"), toSjis("注文照会")).AttrOr("href", "invalid url")
+	oiurl, _ = bow.ResolveStringUrl(oiurl)
+	if e := bow.Open(oiurl); e != nil {
+		return errors.Wrapf(e, "Can't open order inquery page: %s", oiurl)
+	}
+
+	// periodic order url: 積立買付・定期売却ページ
+	pourl := filterTextContains(bow.Dom().Find("a"), toSjis("積立買付・定期売却")).AttrOr("href", "invalid url")
+	pourl, _ = bow.ResolveStringUrl(pourl)
+	if e := bow.Open(pourl); e != nil {
+		return errors.Wrapf(e, "Can't periodic order page: %s", pourl)
+	}
+
+	return nil
+}
+
+// 注文中ページからFundを作る
+// tr: 注文中ページの1ファンド分(2行)の行データ
+func (c *sbiClient) scanFundOrdered(tr []*goquery.Selection) (*Fund, error) {
+	// | 番号 | 発注状況 | ファンド名 | 取引 | 詳細 |
+	// | 取引/優遇枠 | 締切日時 | 注文数量/見積基準価格 | 約定日/受渡日 | 分配金受取方法指定 |
+	r0 := iterate(tr[0].Find("td"))
+	r1 := iterate(tr[1].Find("td"))
+
+	if len(r0) < 4 || len(r1) < 5 {
+		return nil, errors.Errorf("unexpected table structure of the ordered funds. expected cells [4, 5] but got [%d, %d]", len(r0), len(r1))
+	}
+
+	fnameA := r0[2].Find("a") // ファンド名aタグ
+	href := fnameA.AttrOr("href", "invalid url")
+	url, _ := url.Parse(href)
+	query := url.Query()
+	code := FundCode(query.Get("fund_sec_code"))
+
+	fi, err := c.cache.GetOrFind(code, FundInfoFinder(c.getFundInfo))
+
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	orderAmountText := toUtf8(iterateText(r1[2])[0])
+	if !strings.Contains(orderAmountText, "円") {
+		return nil, errors.New("注文中の銘柄の計算は金額注文のみ対応しています")
+	}
+
+	orderAmount := parseSeparatedInt(orderAmountText)
+
+	name := fi.Name
+	class := fi.Class
+
+	c.Logger.Sugar().Debugf("find an orderd fund: %v %v %v %d", class, name, code, orderAmount)
+
+	return &Fund{
+		Name:             name,
+		Code:             code,
+		AssetClass:       class,
+		AcquisitionPrice: float64(orderAmount),
+		CurrentPrice:     float64(orderAmount),
+	}, nil
+}
+
+func (c *sbiClient) fundsFromPeriodicOrderPage() ([]*Fund, error) {
+	// いまのところ買付のみ
+	bow := c.browser
+
+	funds := []*Fund{}
+	rows := iterate(bow.Dom().Find(".md-l-table-01 tbody tr"))
+
+	// 注文中のファンドは
+	// コード・名称・資産クラス・現在価格のみを設定する
+	c.Logger.Sugar().Debugf("order table length: %d", len(rows))
+	for i := 0; i < len(rows)/2; i++ {
+		f, e := c.scanFundOrdered(rows[i*2 : i*2+2])
+		if e != nil {
+			return nil, e
+		}
+		funds = append(funds, f)
+	}
+
+	return funds, nil
+}
+
+func (c *sbiClient) Scan() ([]*Stock, []*Fund, error) {
+	if e := c.accountPage(); e != nil {
+		return nil, nil, e
+	}
+
+	stocks := c.stocksFromAccountPage()
+	funds, e := c.fundsFromAccountPage()
+	if e != nil {
+		return nil, nil, e
+	}
+
+	if e := c.periodicOrderPage(); e != nil {
+		return nil, nil, e
+	}
+
+	// 注文中の銘柄を取得する
+	pofunds, e := c.fundsFromPeriodicOrderPage()
+	if e != nil {
+		return nil, nil, e
+	}
+
+	funds = append(funds, pofunds...)
 
 	return stocks, funds, nil
 }
