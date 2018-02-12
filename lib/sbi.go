@@ -17,7 +17,7 @@ import (
 type sbiClient struct {
 	browser *browser.Browser
 	cache   FundInfoCache
-	Logger  *zap.Logger
+	Logger  *zap.SugaredLogger
 }
 
 // SbiOption NewSbiScannerの引数
@@ -37,13 +37,13 @@ func NewSbiScanner(option SbiOption) (Scanner, error) {
 	client := &sbiClient{
 		browser: surf.NewBrowser(),
 		cache:   option.Cache,
-		Logger:  option.Logger,
+		Logger:  option.Logger.Sugar(),
 	}
 
 	if err := client.login(option.UserID, option.Password); err != nil {
 		return nil, errors.Wrap(err, "can't login")
 	}
-	client.Logger.Sugar().Debugf("sbi: login")
+	client.Logger.Debugf("sbi: login")
 
 	return client, nil
 }
@@ -108,7 +108,7 @@ func (c *sbiClient) login(userID, password string) error {
 		c.Logger.Debug("Can't detect login message")
 		return errors.New("SBI: the SBI User ID or Password failed")
 	}
-	c.Logger.Sugar().Debugf("sbi: succeeded login %s", bow.Url())
+	c.Logger.Debugf("sbi: succeeded login %s", bow.Url())
 
 	return nil
 }
@@ -264,9 +264,7 @@ func (c *sbiClient) fundsFromAccountPage() ([]*Fund, error) {
 }
 
 func (c *sbiClient) periodicOrderPage() error {
-	sugar := c.Logger.Sugar()
-
-	sugar.Debugf("opening periodic order page")
+	c.Logger.Debugf("opening periodic order page")
 
 	bow := c.browser
 
@@ -341,7 +339,7 @@ func (c *sbiClient) scanFundOrdered(tr []*goquery.Selection) (*Fund, error) {
 	name := fi.Name
 	class := fi.Class
 
-	c.Logger.Sugar().Debugf("find an orderd fund: %v %v %v %d", class, name, code, orderAmount)
+	c.Logger.Debugf("find an orderd fund: %v %v %v %d", class, name, code, orderAmount)
 
 	return &Fund{
 		Name:             name,
@@ -361,7 +359,7 @@ func (c *sbiClient) fundsFromPeriodicOrderPage() ([]*Fund, error) {
 
 	// 注文中のファンドは
 	// コード・名称・資産クラス・現在価格のみを設定する
-	c.Logger.Sugar().Debugf("order table length: %d", len(rows))
+	c.Logger.Debugf("order table length: %d", len(rows))
 	for i := 0; i < len(rows)/2; i++ {
 		f, e := c.scanFundOrdered(rows[i*2 : i*2+2])
 		if e != nil {
