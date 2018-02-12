@@ -108,7 +108,7 @@ func (c *sbiClient) login(userID, password string) error {
 		c.Logger.Debug("Can't detect login message")
 		return errors.New("SBI: the SBI User ID or Password failed")
 	}
-	c.Logger.Debug("sbi: succeeded login")
+	c.Logger.Sugar().Debugf("sbi: succeeded login %s", bow.Url())
 
 	return nil
 }
