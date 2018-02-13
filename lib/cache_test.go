@@ -16,11 +16,17 @@ func tempDir(t *testing.T) string {
 	return tempDir
 }
 
+func tempDirInfoCache(tempDir string) FundInfoCache {
+	fc, _ := NewFileFundInfoCache(nil)
+	fc.(*FileFundInfoCache).path = tempDir
+	return fc
+}
+
 func TestFileGet(t *testing.T) {
 	tempDir := tempDir(t)
 	defer os.RemoveAll(tempDir)
 
-	fc := FundInfoCache(&FileFundInfoCache{path: tempDir})
+	fc := tempDirInfoCache(tempDir)
 
 	c, err := fc.Get(FundCode("12345"))
 	if c != nil || err == nil {
@@ -39,7 +45,7 @@ func TestFileSet(t *testing.T) {
 	tempDir := tempDir(t)
 	defer os.RemoveAll(tempDir)
 
-	fc := FundInfoCache(&FileFundInfoCache{path: tempDir})
+	fc := tempDirInfoCache(tempDir)
 
 	info := &FundInfo{
 		Code:  FundCode("12345"),
@@ -56,7 +62,7 @@ func TestFileSetGet(t *testing.T) {
 	tempDir := tempDir(t)
 	defer os.RemoveAll(tempDir)
 
-	fc := FundInfoCache(&FileFundInfoCache{path: tempDir})
+	fc := tempDirInfoCache(tempDir)
 
 	info := &FundInfo{
 		Code:  FundCode("12345"),
