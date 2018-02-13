@@ -92,6 +92,10 @@ func NewFileFundInfoCache(logger *zap.Logger) (FundInfoCache, error) {
 		return nil, err
 	}
 
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
 	fc := &FileFundInfoCache{
 		path:   dirPath,
 		logger: logger,
