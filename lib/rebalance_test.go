@@ -1,31 +1,36 @@
 package yajirobe
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
+
+func newFund(c AssetClass, p float64) *Fund {
+	return &Fund{
+		Name:         "TestFund",
+		Code:         FundCode(fmt.Sprintf("%05d", int64(c))),
+		Amount:       10,
+		AssetClass:   c,
+		CurrentPrice: p,
+	}
+}
+
+type assert func(class AssetClass, expected float64)
+
+func makeAssert(t *testing.T, result map[AssetClass]float64) assert {
+	return func(class AssetClass, expected float64) {
+		if result[class] != expected {
+			t.Errorf("%v expected %.2f but got %.2f", class, expected, result[class])
+		}
+	}
+}
 
 func Test1(t *testing.T) {
 
 	funds := []*Fund{
-		&Fund{
-			Name:         "TestStock",
-			Code:         "1234",
-			Amount:       10,
-			AssetClass:   EmergingStocks,
-			CurrentPrice: 200,
-		},
-		&Fund{
-			Name:         "TestStock",
-			Code:         "5678",
-			Amount:       10,
-			AssetClass:   DomesticStocks,
-			CurrentPrice: 200,
-		},
-		&Fund{
-			Name:         "TestStock",
-			Code:         "90ab",
-			Amount:       10,
-			AssetClass:   InternationalStocks,
-			CurrentPrice: 600,
-		},
+		newFund(EmergingStocks, 200),
+		newFund(DomesticStocks, 200),
+		newFund(InternationalStocks, 600),
 	}
 
 	target := AllocationTarget{
@@ -37,11 +42,7 @@ func Test1(t *testing.T) {
 	a := NewAssetAllocation([]*Stock{}, funds, target)
 	result := a.RebalancingBuy(100)
 
-	assert := func(class AssetClass, expected float64) {
-		if result[class] != expected {
-			t.Errorf("%v expected %.2f but got %.2f", class, expected, result[class])
-		}
-	}
+	assert := makeAssert(t, result)
 
 	assert(EmergingStocks, 37)
 	assert(DomesticStocks, 63)
