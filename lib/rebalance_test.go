@@ -49,6 +49,54 @@ func Test1(t *testing.T) {
 	assert(InternationalStocks, 0)
 }
 
+func Test2(t *testing.T) {
+
+	funds := []*Fund{
+		newFund(EmergingStocks, 200),
+		newFund(DomesticStocks, 200),
+		newFund(InternationalStocks, 600),
+	}
+
+	target := AllocationTarget{
+		EmergingStocks:      0.25,
+		DomesticStocks:      0.30,
+		InternationalStocks: 0.45,
+	}
+
+	a := NewAssetAllocation([]*Stock{}, funds, target)
+	result := a.RebalancingBuy(300)
+
+	assert := makeAssert(t, result)
+
+	assert(EmergingStocks, 119)
+	assert(DomesticStocks, 181)
+	assert(InternationalStocks, 0)
+}
+
+func Test3(t *testing.T) {
+
+	funds := []*Fund{
+		newFund(EmergingStocks, 200),
+		newFund(DomesticStocks, 200),
+		newFund(InternationalStocks, 600),
+	}
+
+	target := AllocationTarget{
+		EmergingStocks:      0.25,
+		DomesticStocks:      0.30,
+		InternationalStocks: 0.45,
+	}
+
+	a := NewAssetAllocation([]*Stock{}, funds, target)
+	result := a.RebalancingBuy(400)
+
+	assert := makeAssert(t, result)
+
+	assert(EmergingStocks, 150)
+	assert(DomesticStocks, 220)
+	assert(InternationalStocks, 30)
+}
+
 func TestRound(t *testing.T) {
 	assert := func(expected, n float64) {
 		if round(n) != expected {
