@@ -3,7 +3,6 @@ package yajirobe
 import (
 	"fmt"
 	"net/url"
-	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/headzoo/surf/browser"
@@ -47,18 +46,6 @@ func printHTML(s *goquery.Selection) {
 }
 
 // queries
-
-func filterAttrContains(dom *goquery.Selection, attr, text string) *goquery.Selection {
-	return dom.FilterFunction(func(_ int, s *goquery.Selection) bool {
-		return strings.Contains(s.AttrOr(attr, ""), text)
-	})
-}
-
-func filterTextContains(dom *goquery.Selection, text string) *goquery.Selection {
-	return dom.FilterFunction(func(_ int, s *goquery.Selection) bool {
-		return strings.Contains(s.Text(), text)
-	})
-}
 
 func iterate(s *goquery.Selection) (result []*goquery.Selection) {
 	s.Each(func(_ int, i *goquery.Selection) {
