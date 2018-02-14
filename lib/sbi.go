@@ -274,32 +274,18 @@ func (c *sbiClient) periodicOrderPage() error {
 	}
 
 	// investment trust url: 取引→投資信託ページ
-	//iturl := bow.Dom().Find("#link02_trade_menu li:nth-child(2) a").AttrOr("href", "invalid url")
-	itlinks := iterate(bow.Find(toSjis("ul li a:contains('投資信託')")))
-	iturl := ""
-	for _, l := range itlinks {
-		if l.Text() == toSjis("投資信託") && strings.Contains(l.AttrOr("href", "invalid url"), "/ETGate") {
-			iturl = l.AttrOr("href", "dummy")
-			break
-		}
-	}
-	iturl, _ = bow.ResolveStringUrl(iturl)
-	if e := bow.Open(iturl); e != nil {
-		return errors.Wrapf(e, "Can't open investment trust trade page: %s", iturl)
+	if e := bow.Click(toSjis("ul li a[href*='/ETGate']:contains('投資信託')")); e != nil {
+		return errors.Wrapf(e, "Can't open investment trust trade page")
 	}
 
 	// order inqury url: 注文照会ページ
-	oiurl := bow.Find(toSjis("a:contains('注文照会')")).AttrOr("href", "invalid url")
-	oiurl, _ = bow.ResolveStringUrl(oiurl)
-	if e := bow.Open(oiurl); e != nil {
-		return errors.Wrapf(e, "Can't open order inquery page: %s", oiurl)
+	if e := bow.Click(toSjis("a:contains('注文照会')")); e != nil {
+		return errors.Wrapf(e, "Can't open order inquery page")
 	}
 
 	// periodic order url: 積立買付・定期売却ページ
-	pourl := bow.Find("a:contains('積立買付・定期売却')").AttrOr("href", "invalid url")
-	pourl, _ = bow.ResolveStringUrl(pourl)
-	if e := bow.Open(pourl); e != nil {
-		return errors.Wrapf(e, "Can't periodic order page: %s", pourl)
+	if e := bow.Click(toSjis("a:contains('積立買付・定期売却')")); e != nil {
+		return errors.Wrapf(e, "Can't periodic order page")
 	}
 
 	return nil
