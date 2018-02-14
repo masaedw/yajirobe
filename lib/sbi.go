@@ -115,7 +115,7 @@ func (c *sbiClient) login(userID, password string) error {
 
 func (c *sbiClient) accountPage() error {
 	bow := c.browser
-	s := filterAttrContains(bow.Dom().Find("img"), "alt", toSjis("口座管理"))
+	s := bow.Find(toSjis("img[alt='口座管理']"))
 	if s == nil || s.Length() == 0 {
 		return errors.New("SBI: Can't find 口座管理")
 	}
@@ -126,7 +126,7 @@ func (c *sbiClient) accountPage() error {
 		return errors.Wrap(e, "SBI: Can't open 口座管理")
 	}
 
-	s = filterAttrContains(bow.Dom().Find("area"), "alt", toSjis("保有証券"))
+	s = bow.Find(toSjis("area[alt='保有証券']"))
 	url, _ = bow.ResolveStringUrl(s.AttrOr("href", "can't find url"))
 	e = bow.Open(url)
 	if e != nil {
@@ -172,7 +172,7 @@ func (c *sbiClient) getFundInfo(code FundCode) (*FundInfo, error) {
 	if err := bow.Open(url.String()); err != nil {
 		return nil, errors.Wrapf(err, "SBI: Can't open fund's page of %v", code)
 	}
-	categoryHeader := filterTextContains(bow.Find("tr th div p"), toSjis("商品分類"))
+	categoryHeader := bow.Find(toSjis("tr th div p:contains('商品分類')"))
 	category := categoryHeader.Parent().Parent().Parent().First().Next()
 	nameHeader := strings.TrimSpace(toUtf8(bow.Find("h3").First().Text()))
 	names := strings.Split(nameHeader, "－")
@@ -227,7 +227,7 @@ func (c *sbiClient) scanFund(row *goquery.Selection) (*Fund, error) {
 func (c *sbiClient) stocksFromAccountPage() []*Stock {
 	bow := c.browser
 
-	stockFont := filterTextContains(bow.Find("font"), toSjis("銘柄"))
+	stockFont := bow.Find(toSjis("font:contains('銘柄')"))
 	stockTable := stockFont.ParentsFiltered("table").First()
 
 	stocks := []*Stock{}
@@ -242,7 +242,7 @@ func (c *sbiClient) stocksFromAccountPage() []*Stock {
 func (c *sbiClient) fundsFromAccountPage() ([]*Fund, error) {
 	bow := c.browser
 
-	fundFont := filterTextContains(bow.Find("font"), toSjis("ファンド名"))
+	fundFont := bow.Find(toSjis("font:contains('ファンド名')"))
 	fundTables := iterate(fundFont.Parent().Parent().Parent().Parent())
 
 	funds := []*Fund{}
@@ -275,7 +275,7 @@ func (c *sbiClient) periodicOrderPage() error {
 
 	// investment trust url: 取引→投資信託ページ
 	//iturl := bow.Dom().Find("#link02_trade_menu li:nth-child(2) a").AttrOr("href", "invalid url")
-	itlinks := iterate(filterTextContains(bow.Dom().Find("ul li a"), toSjis("投資信託")))
+	itlinks := iterate(bow.Find(toSjis("ul li a:contains('投資信託')")))
 	iturl := ""
 	for _, l := range itlinks {
 		if l.Text() == toSjis("投資信託") && strings.Contains(l.AttrOr("href", "invalid url"), "/ETGate") {
@@ -289,14 +289,14 @@ func (c *sbiClient) periodicOrderPage() error {
 	}
 
 	// order inqury url: 注文照会ページ
-	oiurl := filterTextContains(bow.Dom().Find("a"), toSjis("注文照会")).AttrOr("href", "invalid url")
+	oiurl := bow.Find(toSjis("a:contains('注文照会')")).AttrOr("href", "invalid url")
 	oiurl, _ = bow.ResolveStringUrl(oiurl)
 	if e := bow.Open(oiurl); e != nil {
 		return errors.Wrapf(e, "Can't open order inquery page: %s", oiurl)
 	}
 
 	// periodic order url: 積立買付・定期売却ページ
-	pourl := filterTextContains(bow.Dom().Find("a"), toSjis("積立買付・定期売却")).AttrOr("href", "invalid url")
+	pourl := bow.Find("a:contains('積立買付・定期売却')").AttrOr("href", "invalid url")
 	pourl, _ = bow.ResolveStringUrl(pourl)
 	if e := bow.Open(pourl); e != nil {
 		return errors.Wrapf(e, "Can't periodic order page: %s", pourl)
