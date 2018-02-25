@@ -103,7 +103,7 @@ func (c *sbiClient) login(userID, password string) error {
 	}
 	c.Logger.Debug("sbi: post formswitch")
 
-	if !strings.Contains(toUtf8(bow.Body()), "最終ログイン:") {
+	if !strings.Contains(toUtf8(bow.Body()), "最終ログイン") {
 		// ログイン成功時のメッセージが出てなければログイン失敗してる
 		c.Logger.Debug("Can't detect login message")
 		return errors.New("SBI: the SBI User ID or Password failed")
