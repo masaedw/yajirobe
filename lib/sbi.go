@@ -263,8 +263,8 @@ func (c *sbiClient) fundsFromAccountPage() ([]*Fund, error) {
 	return funds, nil
 }
 
-func (c *sbiClient) periodicOrderPage() error {
-	c.Logger.Debugf("opening periodic order page")
+func (c *sbiClient) investmentTrustOrderPage() error {
+	c.Logger.Debugf("opening investment trust order page")
 
 	bow := c.browser
 
@@ -282,6 +282,15 @@ func (c *sbiClient) periodicOrderPage() error {
 	if e := bow.Click(toSjis("a:contains('注文照会')")); e != nil {
 		return errors.Wrapf(e, "Can't open order inquery page")
 	}
+
+	return nil
+}
+
+func (c *sbiClient) periodicOrderPage() error {
+	c.Logger.Debugf("opening periodic order page")
+
+	// 投信注文履歴ページにいる前提で積立買付ページに遷移する
+	bow := c.browser
 
 	// periodic order url: 積立買付・定期売却ページ
 	if e := bow.Click(toSjis("a:contains('積立買付・定期売却')")); e != nil {
@@ -336,7 +345,7 @@ func (c *sbiClient) scanFundOrdered(tr []*goquery.Selection) (*Fund, error) {
 	}, nil
 }
 
-func (c *sbiClient) fundsFromPeriodicOrderPage() ([]*Fund, error) {
+func (c *sbiClient) fundsFromInvestmentTrustOrderPage() ([]*Fund, error) {
 	// いまのところ買付のみ
 	bow := c.browser
 
@@ -368,17 +377,30 @@ func (c *sbiClient) Scan() ([]*Stock, []*Fund, error) {
 		return nil, nil, e
 	}
 
-	if e := c.periodicOrderPage(); e != nil {
+	// 注文中の銘柄を取得する
+	// 普通の金額買付
+	if e := c.investmentTrustOrderPage(); e != nil {
 		return nil, nil, e
 	}
 
-	// 注文中の銘柄を取得する
-	pofunds, e := c.fundsFromPeriodicOrderPage()
+	order, e := c.fundsFromInvestmentTrustOrderPage()
 	if e != nil {
 		return nil, nil, e
 	}
 
-	funds = append(funds, pofunds...)
+	funds = append(funds, order...)
+
+	// 定期買付
+	if e := c.periodicOrderPage(); e != nil {
+		return nil, nil, e
+	}
+
+	order, e = c.fundsFromInvestmentTrustOrderPage()
+	if e != nil {
+		return nil, nil, e
+	}
+
+	funds = append(funds, order...)
 
 	return stocks, funds, nil
 }
