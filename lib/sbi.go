@@ -273,12 +273,12 @@ func (c *sbiClient) investmentTrustOrderPage() error {
 		return errors.New("can't open sbi top page")
 	}
 
-	// investment trust url: 取引→投資信託ページ
+	// 取引→投資信託ページ
 	if e := bow.Click(toSjis("ul li a[href*='/ETGate']:contains('投資信託')")); e != nil {
 		return errors.Wrapf(e, "Can't open investment trust trade page")
 	}
 
-	// order inqury url: 注文照会ページ
+	// 注文照会ページ
 	if e := bow.Click(toSjis("a:contains('注文照会')")); e != nil {
 		return errors.Wrapf(e, "Can't open order inquery page")
 	}
@@ -292,7 +292,7 @@ func (c *sbiClient) periodicOrderPage() error {
 	// 投信注文履歴ページにいる前提で積立買付ページに遷移する
 	bow := c.browser
 
-	// periodic order url: 積立買付・定期売却ページ
+	// 積立買付・定期売却ページ
 	if e := bow.Click(toSjis("a:contains('積立買付・定期売却')")); e != nil {
 		return errors.Wrapf(e, "Can't periodic order page")
 	}
