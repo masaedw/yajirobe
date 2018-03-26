@@ -366,6 +366,27 @@ func (c *sbiClient) fundsFromInvestmentTrustOrderPage() ([]*Fund, error) {
 	return funds, nil
 }
 
+// 口座(外貨建)→[保有証券]タブへ遷移
+func (c *sbiClient) foreignAccountPage() error {
+	bow := c.browser
+
+	// 口座管理→口座(外貨建)ページ
+	if e := bow.Click(toSjis("ul li a[href*='/ETGate']:contains('口座（外貨建）')")); e != nil {
+		return errors.Wrapf(e, "Can't open foreign account page")
+	}
+
+	data := url.Values{}
+	data.Add("page", "BondFx")
+
+	// 保有証券タブ
+	url, _ := bow.ResolveStringUrl("/bff/fbonds/BffPossessionBondList.do")
+	if e := bow.PostForm(url, data); e != nil {
+		return errors.Wrapf(e, "Can't open holdings tab page")
+	}
+
+	return nil
+}
+
 func (c *sbiClient) Scan() ([]*Stock, []*Fund, error) {
 	if e := c.accountPage(); e != nil {
 		return nil, nil, e
@@ -401,6 +422,11 @@ func (c *sbiClient) Scan() ([]*Stock, []*Fund, error) {
 	}
 
 	funds = append(funds, order...)
+
+	// 外国株式
+	if e := c.foreignAccountPage(); e != nil {
+		return nil, nil, e
+	}
 
 	return stocks, funds, nil
 }
