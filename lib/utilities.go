@@ -28,3 +28,10 @@ func parseSeparatedInt(s string) int64 {
 	i, _ := strconv.ParseInt(s, 10, 64)
 	return i
 }
+
+func parseSeparatedFloat(s string) float64 {
+	s = strings.Replace(s, ",", "", -1)
+	s = regexp.MustCompile(`\d+(.\d+)?`).FindString(s)
+	i, _ := strconv.ParseFloat(s, 64)
+	return i
+}
