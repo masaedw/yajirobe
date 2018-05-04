@@ -29,6 +29,25 @@ type FundInfoCache interface {
 	Set(info *FundInfo) error
 }
 
+type nilFundInfoCache struct{}
+
+func (c nilFundInfoCache) Get(code FundCode) (*FundInfo, error) {
+	return nil, &CacheNotExistsError{Code: code}
+}
+
+func (c nilFundInfoCache) GetOrFind(code FundCode, finder FundInfoFinder) (*FundInfo, error) {
+	return nil, &CacheNotExistsError{Code: code}
+}
+
+func (c nilFundInfoCache) Set(info *FundInfo) error {
+	return nil
+}
+
+// NewNilFundInfoCache create a NilFundInfoCache
+func NewNilFundInfoCache() FundInfoCache {
+	return nilFundInfoCache{}
+}
+
 // DefaultGetOrFind GetとSetをつかったGetOrFindのデフォルト実装
 func DefaultGetOrFind(fc FundInfoCache, code FundCode, finder FundInfoFinder) (*FundInfo, error) {
 	fi, err := fc.Get(code)
