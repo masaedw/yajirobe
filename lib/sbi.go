@@ -370,21 +370,86 @@ func (c *sbiClient) fundsFromInvestmentTrustOrderPage() ([]*Fund, error) {
 func (c *sbiClient) foreignAccountPage() error {
 	bow := c.browser
 
-	// 口座管理→口座(外貨建)ページ
-	if e := bow.Click(toSjis("ul li a[href*='/ETGate']:contains('口座（外貨建）')")); e != nil {
+	if e := bow.Open("https://site1.sbisec.co.jp/ETGate/?OutSide=on&_ControlID=WPLETsmR001Control&_DataStoreID=DSWPLETsmR001Control&sw_page=Foreign&cat1=home&cat2=none&sw_param1=GB&getFlg=on"); e != nil {
+		return errors.Wrapf(e, "Can't open foreign account login url")
+	}
+
+	form, err := bow.Form("[name='formSwitch']")
+	if err != nil {
+		html, _ := bow.Dom().Html()
+		c.Logger.Debug(toUtf8(html))
+		return errors.Wrapf(err, "Can't find formSwitch to login foreign account page")
+	}
+
+	if err := form.Submit(); err != nil {
+		return errors.Wrapf(err, "Can't submit formSwitch to login foreign account page")
+	}
+
+	// 外貨建商品サイト > 口座管理 > 保有証券タブ
+	if e := bow.Open("https://global.sbisec.co.jp/Fpts/czk/secCashBalance/moveSecCashBalance"); e != nil {
 		return errors.Wrapf(e, "Can't open foreign account page")
 	}
 
-	data := url.Values{}
-	data.Add("page", "BondFx")
+	return nil
+}
 
-	// 保有証券タブ
-	url, _ := bow.ResolveStringUrl("/bff/fbonds/BffPossessionBondList.do")
-	if e := bow.PostForm(url, data); e != nil {
-		return errors.Wrapf(e, "Can't open holdings tab page")
+func (c *sbiClient) parseForegnStock(row *goquery.Selection) (*Fund, error) {
+
+	//   0            1      2         3             4         5          6             7
+	// | 　　銘柄　　 | 時価 | 現在値　 | 保有数量　   | 取得単価 | 取得金額 | 外貨建評価額 | 外貨建評価損益 | 取引 |
+	// | コード・市場 | 計算 | 円換算額 | (売却注文中) | 円換算額 | 円換算額 | 円換算評価額 | 円換算評価損益 | 　　 |
+
+	parseYen := func(cell string) float64 {
+		s := strings.Split(strings.TrimSpace(cell), "\n")
+		return float64(parseSeparatedInt(s[1]))
 	}
 
-	return nil
+	cols := iterate(row.Find("td"))
+	text := strings.TrimSpace(cols[0].Text())
+	// todo error check
+	name := strings.Split(text, "\n")[0]
+	aUnit := parseYen(cols[5].Text())
+	cUnit := parseYen(cols[6].Text())
+
+	// 名称、アセットクラス、取得価格、現在価格だけを設定する
+	f := &Fund{
+		Name:             name,
+		AssetClass:       InternationalStocks,
+		AcquisitionPrice: aUnit,
+		CurrentPrice:     cUnit,
+	}
+
+	c.Logger.Debugf("fund: %+v", f)
+
+	return f, nil
+}
+
+func (c *sbiClient) fundsFromForeignAccountPage() ([]*Fund, error) {
+	bow := c.browser
+
+	// #main > table.tblMod01 > tbody > tr:nth-child(1) > td:nth-child(1)
+
+	rows := bow.Find("#main > table.tblMod01 > tbody > tr")
+	if rows.Length() == 0 {
+		c.Logger.Info("No US stocks")
+		c.Logger.Debugf(bow.Dom().Text())
+		return []*Fund{}, nil
+	}
+
+	funds := []*Fund{}
+	c.Logger.Debugf("US Stocks: %d", rows.Length()-1)
+
+	// 最後の行はサマリなので見なくてよい
+	rowslice := iterate(rows)
+	for _, row := range rowslice[:len(rowslice)-1] {
+		f, err := c.parseForegnStock(row)
+		if err != nil {
+			return nil, errors.Wrapf(err, "can't parse a foreign stock")
+		}
+		funds = append(funds, f)
+	}
+
+	return funds, nil
 }
 
 func (c *sbiClient) Scan() ([]*Stock, []*Fund, error) {
@@ -427,6 +492,13 @@ func (c *sbiClient) Scan() ([]*Stock, []*Fund, error) {
 	if e := c.foreignAccountPage(); e != nil {
 		return nil, nil, e
 	}
+
+	fstocks, e := c.fundsFromForeignAccountPage()
+	if e != nil {
+		return nil, nil, e
+	}
+
+	funds = append(funds, fstocks...)
 
 	return stocks, funds, nil
 }
