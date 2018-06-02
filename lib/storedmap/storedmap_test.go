@@ -32,7 +32,7 @@ func TestFileGet(t *testing.T) {
 	c := tempDirInfoCache(tempDir)
 
 	d, err := c.Get("12345")
-	if d != "" || err == nil {
+	if d != nil || err == nil {
 		t.Fatalf("expected empty but got something: %v", d)
 	}
 	switch err.(type) {
@@ -52,7 +52,7 @@ func TestFileSet(t *testing.T) {
 
 	json := "{}"
 
-	if err := c.Set("12345", json); err != nil {
+	if err := c.Set("12345", []byte(json)); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -65,7 +65,7 @@ func TestFileSetGet(t *testing.T) {
 
 	json := "{code: 12345}"
 
-	if err := c.Set("12345", json); err != nil {
+	if err := c.Set("12345", []byte(json)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -74,7 +74,7 @@ func TestFileSetGet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if cache != json {
+	if string(cache) != json {
 		t.Fatalf("expected %v but got %v", json, cache)
 	}
 }
@@ -84,7 +84,7 @@ func TestFileCanGet(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	c := tempDirInfoCache(tempDir)
-	c.Set("existskey", "existsjson")
+	c.Set("existskey", []byte("existsdata"))
 
 	if c.CanGet("notexistskey") == true {
 		t.Errorf(`expected c.CanGet("notexistskey") is false but got true`)

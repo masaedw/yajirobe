@@ -12,26 +12,23 @@ import (
 	"go.uber.org/zap"
 )
 
-// Finder キャッシュがない場合に実際にデータを取りに行く関数
-type Finder func(key string) (string, error)
-
-// StoredMap JSONを保存するインターフェイス
+// StoredMap バイト列を保存するインターフェイス
 type StoredMap interface {
 	// keyは `[a-zA-Z0-9.]+`` の形式
-	Get(key string) (string, error)
+	Get(key string) ([]byte, error)
 	CanGet(key string) bool
-	Set(key, json string) error
+	Set(key string, data []byte) error
 }
 
 type memoryMap struct {
-	data map[string]string
+	data map[string][]byte
 }
 
-func (c *memoryMap) Get(key string) (string, error) {
+func (c *memoryMap) Get(key string) ([]byte, error) {
 	if d, ok := c.data[key]; ok {
 		return d, nil
 	}
-	return "", &NotExistsError{Key: key}
+	return nil, &NotExistsError{Key: key}
 }
 
 func (c *memoryMap) CanGet(key string) bool {
@@ -39,15 +36,15 @@ func (c *memoryMap) CanGet(key string) bool {
 	return ok
 }
 
-func (c *memoryMap) Set(key, json string) error {
-	c.data[key] = json
+func (c *memoryMap) Set(key string, data []byte) error {
+	c.data[key] = data
 	return nil
 }
 
 // NewMemoryMap memoryCacheを作る
 func NewMemoryMap() StoredMap {
 	return &memoryMap{
-		data: map[string]string{},
+		data: map[string][]byte{},
 	}
 }
 
@@ -75,25 +72,25 @@ func (c *fileMap) fundFilePath(key string) string {
 	return filepath.Join(c.fundPath(), fname)
 }
 
-func (c *fileMap) Get(key string) (string, error) {
+func (c *fileMap) Get(key string) ([]byte, error) {
 	if c == nil {
-		return "", errors.New("Get method called with nil")
+		return nil, errors.New("Get method called with nil")
 	}
 
 	fullPath := c.fundFilePath(key)
 
 	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
 		c.logger.Sugar().Debugf("cache miss: %v", key)
-		return "", &NotExistsError{Key: key}
+		return nil, &NotExistsError{Key: key}
 	}
 
 	c.logger.Sugar().Debugf("cache hit: %v", key)
 	data, err := ioutil.ReadFile(fullPath)
 	if err != nil {
-		return "", errors.Wrap(err, "can't read cache file")
+		return nil, errors.Wrap(err, "can't read cache file")
 	}
 
-	return string(data), nil
+	return data, nil
 }
 
 func (c *fileMap) CanGet(key string) bool {
@@ -101,7 +98,7 @@ func (c *fileMap) CanGet(key string) bool {
 	return err == nil
 }
 
-func (c *fileMap) Set(key, json string) error {
+func (c *fileMap) Set(key string, data []byte) error {
 	key = escapeKey(key)
 	if key == "" {
 		return errors.New("key is empty")
@@ -113,7 +110,7 @@ func (c *fileMap) Set(key, json string) error {
 
 	filePath := c.fundFilePath(key)
 
-	return ioutil.WriteFile(filePath, []byte(json), 0644)
+	return ioutil.WriteFile(filePath, data, 0644)
 }
 
 // NewFileMap FileMapを作る
