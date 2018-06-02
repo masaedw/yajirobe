@@ -1,4 +1,4 @@
-package cache
+package storedmap
 
 import (
 	"errors"
@@ -18,10 +18,10 @@ func tempDir(t *testing.T) string {
 	return tempDir
 }
 
-func tempDirInfoCache(tempDir string) Cache {
+func tempDirInfoCache(tempDir string) StoredMap {
 	l, _ := zap.NewDevelopment()
-	c, _ := NewFileCache(l)
-	c.(*fileCache).path = tempDir
+	c, _ := NewFileMap(l)
+	c.(*fileMap).path = tempDir
 	return c
 }
 

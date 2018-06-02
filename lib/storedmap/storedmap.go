@@ -1,4 +1,4 @@
-package cache
+package storedmap
 
 import (
 	"fmt"
@@ -15,27 +15,27 @@ import (
 // Finder キャッシュがない場合に実際にデータを取りに行く関数
 type Finder func(key string) (string, error)
 
-// Cache JSONをキャッシュするインターフェイス
-type Cache interface {
+// StoredMap JSONを保存するインターフェイス
+type StoredMap interface {
 	// keyは `[a-zA-Z0-9.]+`` の形式
 	Get(key string) (string, error)
 	GetOrFind(key string, finder Finder) (string, error)
 	Set(key, json string) error
 }
 
-type memoryCache struct {
-	cache map[string]string
+type memoryMap struct {
+	data map[string]string
 }
 
-func (c *memoryCache) Get(key string) (string, error) {
-	if d, ok := c.cache[key]; ok {
+func (c *memoryMap) Get(key string) (string, error) {
+	if d, ok := c.data[key]; ok {
 		return d, nil
 	}
 	return "", &NotExistsError{Key: key}
 }
 
-func (c *memoryCache) GetOrFind(key string, finder Finder) (string, error) {
-	if d, ok := c.cache[key]; ok {
+func (c *memoryMap) GetOrFind(key string, finder Finder) (string, error) {
+	if d, ok := c.data[key]; ok {
 		return d, nil
 	}
 
@@ -45,23 +45,23 @@ func (c *memoryCache) GetOrFind(key string, finder Finder) (string, error) {
 		return "", errors.Wrap(err, "finder failed")
 	}
 
-	c.cache[key] = d
+	c.data[key] = d
 	return d, nil
 }
 
-func (c *memoryCache) Set(key, json string) error {
-	c.cache[key] = json
+func (c *memoryMap) Set(key, json string) error {
+	c.data[key] = json
 	return nil
 }
 
-// NewMemoryCache memoryCacheを作る
-func NewMemoryCache() Cache {
-	return &memoryCache{
-		cache: map[string]string{},
+// NewMemoryMap memoryCacheを作る
+func NewMemoryMap() StoredMap {
+	return &memoryMap{
+		data: map[string]string{},
 	}
 }
 
-type fileCache struct {
+type fileMap struct {
 	path   string
 	logger *zap.Logger
 }
@@ -72,20 +72,20 @@ func escapeKey(key string) string {
 	return keyPattern.ReplaceAllString(key, "")
 }
 
-func (c *fileCache) prepareDir() error {
+func (c *fileMap) prepareDir() error {
 	return os.MkdirAll(c.fundPath(), 0755)
 }
 
-func (c *fileCache) fundPath() string {
+func (c *fileMap) fundPath() string {
 	return filepath.Join(c.path, "cache")
 }
 
-func (c *fileCache) fundFilePath(key string) string {
+func (c *fileMap) fundFilePath(key string) string {
 	fname := escapeKey(key)
 	return filepath.Join(c.fundPath(), fname)
 }
 
-func (c *fileCache) Get(key string) (string, error) {
+func (c *fileMap) Get(key string) (string, error) {
 	if c == nil {
 		return "", errors.New("Get method called with nil")
 	}
@@ -106,7 +106,7 @@ func (c *fileCache) Get(key string) (string, error) {
 	return string(data), nil
 }
 
-func (c *fileCache) Set(key, json string) error {
+func (c *fileMap) Set(key, json string) error {
 	key = escapeKey(key)
 	if key == "" {
 		return errors.New("key is empty")
@@ -121,7 +121,7 @@ func (c *fileCache) Set(key, json string) error {
 	return ioutil.WriteFile(filePath, []byte(json), 0644)
 }
 
-func (c *fileCache) GetOrFind(key string, finder Finder) (string, error) {
+func (c *fileMap) GetOrFind(key string, finder Finder) (string, error) {
 	d, err := c.Get(key)
 	switch {
 	case err != nil && !IsNotExists(err):
@@ -139,8 +139,8 @@ func (c *fileCache) GetOrFind(key string, finder Finder) (string, error) {
 	}
 }
 
-// NewFileCache FileCacheを作る
-func NewFileCache(logger *zap.Logger) (Cache, error) {
+// NewFileMap FileMapを作る
+func NewFileMap(logger *zap.Logger) (StoredMap, error) {
 	dirPath, err := cachePath()
 	if err != nil {
 		return nil, err
@@ -150,7 +150,7 @@ func NewFileCache(logger *zap.Logger) (Cache, error) {
 		logger = zap.NewNop()
 	}
 
-	fc := &fileCache{
+	fc := &fileMap{
 		path:   dirPath,
 		logger: logger,
 	}
@@ -158,7 +158,7 @@ func NewFileCache(logger *zap.Logger) (Cache, error) {
 	return fc, nil
 }
 
-// NotExistsError キャッシュされた情報がない
+// NotExistsError 保存された情報がない
 type NotExistsError struct {
 	Key string
 }
