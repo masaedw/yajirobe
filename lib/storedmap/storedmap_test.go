@@ -79,48 +79,24 @@ func TestFileSetGet(t *testing.T) {
 	}
 }
 
-func TestFileGetOrFind_NewKey(t *testing.T) {
+func TestFileCanGet(t *testing.T) {
 	tempDir := tempDir(t)
 	defer os.RemoveAll(tempDir)
 
 	c := tempDirInfoCache(tempDir)
+	c.Set("existskey", "existsjson")
 
-	json, err := c.GetOrFind("newkey", func(key string) (string, error) {
-		return "newkey_json", nil
-	})
-
-	if json != "newkey_json" {
-		t.Errorf("expected newkey_json but got %s", json)
+	if c.CanGet("notexistskey") == true {
+		t.Errorf(`expected c.CanGet("notexistskey") is false but got true`)
 	}
 
-	if err != nil {
-		t.Errorf("error occured %v", err)
-	}
-}
-
-func TestFileGetOrFind_ExistsKey(t *testing.T) {
-	tempDir := tempDir(t)
-	defer os.RemoveAll(tempDir)
-
-	c := tempDirInfoCache(tempDir)
-	c.Set("existskey", "existskey_json")
-
-	json, err := c.GetOrFind("existskey", func(key string) (string, error) {
-		t.Errorf("finder unexpectedly called")
-		return "", nil
-	})
-
-	if json != "existskey_json" {
-		t.Errorf("expected existskey_json but got %s", json)
-	}
-
-	if err != nil {
-		t.Errorf("error occured %v", err)
+	if c.CanGet("existskey") == false {
+		t.Errorf(`expected c.CanGet("existskey") is true but got false`)
 	}
 }
 
 func TestIsNotExists(t *testing.T) {
-	if (!IsNotExists(&NotExistsError{})) {
+	if !IsNotExists(&NotExistsError{}) {
 		t.Fatal("expected true but got false")
 	}
 

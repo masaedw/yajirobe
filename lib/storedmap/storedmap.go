@@ -19,7 +19,7 @@ type Finder func(key string) (string, error)
 type StoredMap interface {
 	// keyは `[a-zA-Z0-9.]+`` の形式
 	Get(key string) (string, error)
-	GetOrFind(key string, finder Finder) (string, error)
+	CanGet(key string) bool
 	Set(key, json string) error
 }
 
@@ -34,19 +34,9 @@ func (c *memoryMap) Get(key string) (string, error) {
 	return "", &NotExistsError{Key: key}
 }
 
-func (c *memoryMap) GetOrFind(key string, finder Finder) (string, error) {
-	if d, ok := c.data[key]; ok {
-		return d, nil
-	}
-
-	d, err := finder(key)
-
-	if err != nil {
-		return "", errors.Wrap(err, "finder failed")
-	}
-
-	c.data[key] = d
-	return d, nil
+func (c *memoryMap) CanGet(key string) bool {
+	_, ok := c.data[key]
+	return ok
 }
 
 func (c *memoryMap) Set(key, json string) error {
@@ -106,6 +96,11 @@ func (c *fileMap) Get(key string) (string, error) {
 	return string(data), nil
 }
 
+func (c *fileMap) CanGet(key string) bool {
+	_, err := c.Get(key)
+	return err == nil
+}
+
 func (c *fileMap) Set(key, json string) error {
 	key = escapeKey(key)
 	if key == "" {
@@ -119,24 +114,6 @@ func (c *fileMap) Set(key, json string) error {
 	filePath := c.fundFilePath(key)
 
 	return ioutil.WriteFile(filePath, []byte(json), 0644)
-}
-
-func (c *fileMap) GetOrFind(key string, finder Finder) (string, error) {
-	d, err := c.Get(key)
-	switch {
-	case err != nil && !IsNotExists(err):
-		return "", errors.WithStack(err)
-
-	case err != nil && IsNotExists(err):
-		d, err := finder(key)
-		if d != "" {
-			err = c.Set(key, d)
-		}
-		return d, errors.WithStack(err)
-
-	default:
-		return d, nil
-	}
 }
 
 // NewFileMap FileMapを作る
