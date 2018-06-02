@@ -113,7 +113,8 @@ func (c *fileMap) Set(key string, data []byte) error {
 	return ioutil.WriteFile(filePath, data, 0644)
 }
 
-// NewFileMap FileMapを作る
+// NewFileMap creates a FileMap
+// If logger is nil, NewFileMap uses NewNop as logger.
 func NewFileMap(logger *zap.Logger) (StoredMap, error) {
 	dirPath, err := cachePath()
 	if err != nil {

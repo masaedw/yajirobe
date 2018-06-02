@@ -65,7 +65,7 @@ func main() {
 	command := kingpin.MustParse(app.Parse(os.Args[1:]))
 	createLogger()
 
-	cache, err := yajirobe.NewFileFundInfoCache(logger)
+	cache, err := yajirobe.NewFileCache(logger)
 	if err != nil {
 		errorExit(err)
 	}

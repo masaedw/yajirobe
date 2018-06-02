@@ -2,14 +2,12 @@ package yajirobe
 
 import (
 	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"runtime"
+
+	"go.uber.org/zap"
+
+	"github.com/masaedw/yajirobe/lib/storedmap"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 // FundInfo ファンド情報
@@ -19,140 +17,29 @@ type FundInfo struct {
 	Name  string     `json:"name"`
 }
 
-// FundInfoFinder ファンドコードからファンド情報を取得する関数
-type FundInfoFinder func(code FundCode) (*FundInfo, error)
+// Cache ファンド情報のキャッシュ
+type Cache interface {
+	GetFund(code FundCode) (*FundInfo, error)
+	CanGetFund(code FundCode) bool
+	SetFund(info *FundInfo) error
 
-// FundInfoCache ファンド情報のキャッシュ
-type FundInfoCache interface {
-	Get(code FundCode) (*FundInfo, error)
-	GetOrFind(code FundCode, finder FundInfoFinder) (*FundInfo, error)
-	Set(info *FundInfo) error
+	GetString(key string) (string, error)
+	CanGetString(key string) bool
+	SetString(key, data string) error
 }
 
-type nilFundInfoCache struct{}
-
-func (c nilFundInfoCache) Get(code FundCode) (*FundInfo, error) {
-	return nil, &CacheNotExistsError{Code: code}
+type cache struct {
+	smap storedmap.StoredMap
 }
 
-func (c nilFundInfoCache) GetOrFind(code FundCode, finder FundInfoFinder) (*FundInfo, error) {
-	return nil, &CacheNotExistsError{Code: code}
+func fundKey(code FundCode) string {
+	return "fund." + string(code)
 }
 
-func (c nilFundInfoCache) Set(info *FundInfo) error {
-	return nil
-}
-
-// NewNilFundInfoCache create a NilFundInfoCache
-func NewNilFundInfoCache() FundInfoCache {
-	return nilFundInfoCache{}
-}
-
-// DefaultGetOrFind GetとSetをつかったGetOrFindのデフォルト実装
-func DefaultGetOrFind(fc FundInfoCache, code FundCode, finder FundInfoFinder) (*FundInfo, error) {
-	fi, err := fc.Get(code)
-	switch {
-	case err != nil && !IsCacheNotExists(err):
-		return nil, errors.WithStack(err)
-
-	case err != nil && IsCacheNotExists(err):
-		fi, err := finder(code)
-		if fi != nil {
-			err = fc.Set(fi)
-		}
-		return fi, errors.WithStack(err)
-
-	default:
-		return fi, nil
-	}
-}
-
-// CacheNotExistsError キャッシュされた情報がない
-type CacheNotExistsError struct {
-	Code FundCode
-}
-
-// IsCacheNotExists eがCacheNotExistsErrorならtrueを返す
-func IsCacheNotExists(e error) bool {
-	switch e.(type) {
-	case *CacheNotExistsError:
-		return true
-	default:
-		return false
-	}
-}
-
-func (e *CacheNotExistsError) Error() string {
-	return fmt.Sprintf("no cached info of the code: %v", e.Code)
-}
-
-// FileFundInfoCache ローカルファイルにキャッシュするFundInfoCache
-type FileFundInfoCache struct {
-	path   string
-	logger *zap.Logger
-}
-
-func cachePath() (string, error) {
-	if runtime.GOOS == "windows" {
-		appdata := os.Getenv("APPDATA")
-		if appdata == "" {
-			return "", errors.New("APPDATA is not defined")
-		}
-		return filepath.Join(appdata, "yajirobe"), nil
-	}
-
-	return filepath.Join(os.Getenv("HOME"), ".yajirobe"), nil
-}
-
-// NewFileFundInfoCache NewFileFundInfoCacheを作る
-func NewFileFundInfoCache(logger *zap.Logger) (FundInfoCache, error) {
-	dirPath, err := cachePath()
+func (c *cache) GetFund(code FundCode) (*FundInfo, error) {
+	data, err := c.smap.Get(fundKey(code))
 	if err != nil {
-		return nil, err
-	}
-
-	if logger == nil {
-		logger = zap.NewNop()
-	}
-
-	fc := &FileFundInfoCache{
-		path:   dirPath,
-		logger: logger,
-	}
-
-	return fc, nil
-}
-
-func (fc *FileFundInfoCache) prepareDir() error {
-	return os.MkdirAll(fc.fundPath(), 0755)
-}
-
-func (fc *FileFundInfoCache) fundPath() string {
-	return filepath.Join(fc.path, "cache", "funds")
-}
-
-func (fc *FileFundInfoCache) fundFilePath(code FundCode) string {
-	fname := filepath.Clean(string(code))
-	return filepath.Join(fc.fundPath(), fname)
-}
-
-// Get 取得
-func (fc *FileFundInfoCache) Get(code FundCode) (*FundInfo, error) {
-	if fc == nil {
-		return nil, errors.New("Get method called with nil")
-	}
-
-	fullPath := fc.fundFilePath(code)
-
-	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-		fc.logger.Sugar().Debugf("cache miss: %v", code)
-		return nil, &CacheNotExistsError{Code: code}
-	}
-
-	fc.logger.Sugar().Debugf("cache hit: %v", code)
-	data, err := ioutil.ReadFile(fullPath)
-	if err != nil {
-		return nil, errors.Wrap(err, "can't read cache file")
+		return nil, errors.Wrap(err, "cache doesn't exist")
 	}
 
 	info := &FundInfo{}
@@ -164,8 +51,11 @@ func (fc *FileFundInfoCache) Get(code FundCode) (*FundInfo, error) {
 	return info, nil
 }
 
-// Set 設定
-func (fc *FileFundInfoCache) Set(info *FundInfo) error {
+func (c *cache) CanGetFund(code FundCode) bool {
+	return c.smap.CanGet(fundKey(code))
+}
+
+func (c *cache) SetFund(info *FundInfo) error {
 	if info == nil {
 		return errors.New("info is nil")
 	}
@@ -179,16 +69,49 @@ func (fc *FileFundInfoCache) Set(info *FundInfo) error {
 		return errors.Wrap(err, "can't marshal fundinfo")
 	}
 
-	if err = fc.prepareDir(); err != nil {
-		return errors.Wrap(err, "can't prepare directory")
-	}
-
-	filePath := fc.fundFilePath(info.Code)
-
-	return ioutil.WriteFile(filePath, data, 0644)
+	return errors.Wrap(
+		c.smap.Set(fundKey(info.Code), data),
+		"can't set to storedmap")
 }
 
-// GetOrFind キャッシュにあれば取得、なければFundInfoFinderを使って探しに行く
-func (fc *FileFundInfoCache) GetOrFind(code FundCode, finder FundInfoFinder) (*FundInfo, error) {
-	return DefaultGetOrFind(fc, code, finder)
+func stringKey(key string) string {
+	return "string." + key
+}
+
+func (c *cache) GetString(key string) (string, error) {
+	data, err := c.smap.Get(stringKey(key))
+	if err != nil {
+		return "", errors.Wrap(err, "can't get data from storedmap")
+	}
+
+	return string(data), nil
+}
+
+func (c *cache) CanGetString(key string) bool {
+	return c.smap.CanGet(stringKey(key))
+}
+
+func (c *cache) SetString(key, data string) error {
+	return errors.Wrap(
+		c.smap.Set(stringKey(key), []byte(data)),
+		"can't set to storedmap")
+}
+
+// NewMemoryCache creates a Cache
+func NewMemoryCache() Cache {
+	return &cache{
+		smap: storedmap.NewMemoryMap(),
+	}
+}
+
+// NewFileCache creates a Cache.
+// If logger is nil, NewFileCache uses NewNop as logger.
+func NewFileCache(logger *zap.Logger) (Cache, error) {
+	smap, err := storedmap.NewFileMap(logger)
+	if err != nil {
+		return nil, errors.Wrap(err, "can't create storedmap")
+	}
+	return &cache{
+		smap: smap,
+	}, nil
 }

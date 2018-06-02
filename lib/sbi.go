@@ -16,7 +16,7 @@ import (
 
 type sbiClient struct {
 	browser *browser.Browser
-	cache   FundInfoCache
+	cache   Cache
 	Logger  *zap.SugaredLogger
 }
 
@@ -24,7 +24,7 @@ type sbiClient struct {
 type SbiOption struct {
 	UserID   string
 	Password string
-	Cache    FundInfoCache
+	Cache    Cache
 	Logger   *zap.Logger
 }
 
@@ -201,12 +201,19 @@ func (c *sbiClient) scanFund(row *goquery.Selection) (*Fund, error) {
 	acquisitionUnitPrice := parseSeparatedInt(units[0])
 	currentUnitPrice := parseSeparatedInt(units[1])
 
-	fi, err := c.cache.GetOrFind(code, FundInfoFinder(func(code FundCode) (*FundInfo, error) {
-		return c.getFundInfo(code)
-	}))
-
-	if err != nil {
-		return nil, errors.WithStack(err)
+	var fi *FundInfo
+	var err error
+	if c.cache.CanGetFund(code) {
+		if fi, err = c.cache.GetFund(code); err != nil {
+			return nil, errors.WithStack(err)
+		}
+	} else {
+		if fi, err = c.getFundInfo(code); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		if err = c.cache.SetFund(fi); err != nil {
+			return nil, errors.WithStack(err)
+		}
 	}
 
 	name := fi.Name
@@ -318,10 +325,19 @@ func (c *sbiClient) scanFundOrdered(tr []*goquery.Selection) (*Fund, error) {
 	query := url.Query()
 	code := FundCode(query.Get("fund_sec_code"))
 
-	fi, err := c.cache.GetOrFind(code, FundInfoFinder(c.getFundInfo))
-
-	if err != nil {
-		return nil, errors.WithStack(err)
+	var fi *FundInfo
+	var err error
+	if c.cache.CanGetFund(code) {
+		if fi, err = c.cache.GetFund(code); err != nil {
+			return nil, errors.WithStack(err)
+		}
+	} else {
+		if fi, err = c.getFundInfo(code); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		if err = c.cache.SetFund(fi); err != nil {
+			return nil, errors.WithStack(err)
+		}
 	}
 
 	orderAmountText := toUtf8(iterateText(r1[2])[0])

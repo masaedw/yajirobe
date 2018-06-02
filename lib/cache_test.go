@@ -16,7 +16,7 @@ func tempDir(t *testing.T) string {
 	return tempDir
 }
 
-func tempDirInfoCache(tempDir string) FundInfoCache {
+func tempDirInfoCache(tempDir string) Cache {
 	fc, _ := NewFileFundInfoCache(nil)
 	fc.(*FileFundInfoCache).path = tempDir
 	return fc
