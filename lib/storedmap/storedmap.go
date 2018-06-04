@@ -140,7 +140,7 @@ type NotExistsError struct {
 
 // IsNotExists eがNotExistsErrorならtrueを返す
 func IsNotExists(e error) bool {
-	switch e.(type) {
+	switch errors.Cause(e).(type) {
 	case *NotExistsError:
 		return true
 	default:

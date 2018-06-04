@@ -1,10 +1,11 @@
 package storedmap
 
 import (
-	"errors"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"go.uber.org/zap"
 )
@@ -97,6 +98,10 @@ func TestFileCanGet(t *testing.T) {
 
 func TestIsNotExists(t *testing.T) {
 	if !IsNotExists(&NotExistsError{}) {
+		t.Fatal("expected true but got false")
+	}
+
+	if !IsNotExists(errors.WithStack(&NotExistsError{})) {
 		t.Fatal("expected true but got false")
 	}
 
