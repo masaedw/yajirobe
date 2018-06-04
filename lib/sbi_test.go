@@ -71,7 +71,7 @@ func TestParseForeignStock(t *testing.T) {
 
 	client := &sbiClient{
 		browser: surf.NewBrowser(),
-		cache:   NewNilFundInfoCache(),
+		cache:   NewMemoryCache(),
 		Logger:  zap.NewNop().Sugar(),
 	}
 
